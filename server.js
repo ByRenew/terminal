@@ -36,6 +36,13 @@ try {
   execSync(`echo "${USERNAME}:${PASSWORD}" | chpasswd`);
   execSync(`echo "${USERNAME} ALL=(ALL) ALL" > /etc/sudoers.d/${USERNAME}`);
   execSync(`chmod 440 /etc/sudoers.d/${USERNAME}`);
+  
+  // Disable bracketed paste in user's bashrc
+  execSync(`echo 'bind "set enable-bracketed-paste off"' >> /home/${USERNAME}/.bashrc`);
+  execSync(`echo 'bind "set bell-style none"' >> /home/${USERNAME}/.bashrc`);
+  execSync(`echo 'export PS1="\\u@\\h:\\W\\$ "' >> /home/${USERNAME}/.bashrc`);
+  execSync(`chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.bashrc`);
+  
   console.log(`\x1b[32m✓\x1b[0m User "${USERNAME}" created with sudo access`);
 } catch (e) {
   console.log(`\x1b[33m⚠\x1b[0m User setup issue (may already exist)`);
@@ -52,22 +59,24 @@ const wss = new WebSocket.Server({ server });
 wss.on('connection', (ws, req) => {
   console.log(`\x1b[32m✓\x1b[0m Client connected from ${req.socket.remoteAddress}`);
   
-  // Spawn shell as the user (not root)
-  const shell = pty.spawn('su', ['-', USERNAME], {
-    name: 'xterm-256color',
+  // Use bash directly instead of su, and disable all interactive features
+  const shell = pty.spawn('/bin/bash', [], {
+    name: 'dumb',
     cols: 80,
     rows: 24,
     cwd: `/home/${USERNAME}`,
     env: {
       ...process.env,
-      TERM: 'xterm-256color',
+      TERM: 'dumb',
       HOME: `/home/${USERNAME}`,
-      PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
-    }
+      USER: USERNAME,
+      PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+      PS1: '\\u@\\h:\\W\\$ ',
+      BASH_ENV: '/etc/profile'
+    },
+    uid: 1000,  // optimistic user UID
+    gid: 1000   // optimistic user GID
   });
-  
-  // Disable bracketed paste mode and other noisy features immediately
-  shell.write('bind "set enable-bracketed-paste off" 2>/dev/null; bind "set bell-style none" 2>/dev/null; stty -ixon 2>/dev/null; printf "\x1b[?2004l"; clear\r');
   
   shell.onData((data) => {
     if (ws.readyState === WebSocket.OPEN) {
