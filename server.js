@@ -59,23 +59,17 @@ const wss = new WebSocket.Server({ server });
 wss.on('connection', (ws, req) => {
   console.log(`\x1b[32m✓\x1b[0m Client connected from ${req.socket.remoteAddress}`);
   
-  // Use bash directly instead of su, and disable all interactive features
-  const shell = pty.spawn('/bin/bash', [], {
-    name: 'dumb',
+  const shell = pty.spawn('su', ['-', USERNAME], {
+    name: 'xterm-256color',
     cols: 80,
     rows: 24,
     cwd: `/home/${USERNAME}`,
     env: {
       ...process.env,
-      TERM: 'dumb',
+      TERM: 'xterm-256color',
       HOME: `/home/${USERNAME}`,
-      USER: USERNAME,
-      PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-      PS1: '\\u@\\h:\\W\\$ ',
-      BASH_ENV: '/etc/profile'
-    },
-    uid: 1000,  // optimistic user UID
-    gid: 1000   // optimistic user GID
+      PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+    }
   });
   
   shell.onData((data) => {
