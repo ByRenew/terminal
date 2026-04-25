@@ -21,7 +21,7 @@ app.get('/', (req, res) => {
 
 // Setup: install sudo and create user
 console.log('\x1b[36m╔════════════════════════════════════════════╗\x1b[0m');
-console.log('\x1b[36m║            Optimistic Terminal             ║\x1b[0m');
+console.log('\x1b[36m║      Optimistic OS REAL Terminal           ║\x1b[0m');
 console.log('\x1b[36m╚════════════════════════════════════════════╝\x1b[0m');
 
 try {
@@ -37,7 +37,11 @@ try {
   execSync(`echo "${USERNAME} ALL=(ALL) ALL" > /etc/sudoers.d/${USERNAME}`);
   execSync(`chmod 440 /etc/sudoers.d/${USERNAME}`);
   
-  // Disable bracketed paste in user's bashrc
+  // Force hostname in bashrc - this is the key fix
+  execSync(`echo 'HOSTNAME="optimistic"' > /home/${USERNAME}/.bashrc`);
+  execSync(`echo 'export HOSTNAME' >> /home/${USERNAME}/.bashrc`);
+  execSync(`echo 'PROMPT_COMMAND="echo -ne \\"\\\\033]0;optimistic\\\\007\\""' >> /home/${USERNAME}/.bashrc`);
+  execSync(`echo 'PS1="\\\\u@optimistic:\\\\W\\\\$ "' >> /home/${USERNAME}/.bashrc`);
   execSync(`echo 'bind "set enable-bracketed-paste off"' >> /home/${USERNAME}/.bashrc`);
   execSync(`echo 'bind "set bell-style none"' >> /home/${USERNAME}/.bashrc`);
   execSync(`chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.bashrc`);
@@ -45,18 +49,6 @@ try {
   console.log(`\x1b[32m✓\x1b[0m User "${USERNAME}" created with sudo access`);
 } catch (e) {
   console.log(`\x1b[33m⚠\x1b[0m User setup issue (may already exist)`);
-}
-
-// Set clean hostname at SYSTEM LEVEL before anything starts
-try {
-  execSync('echo "optimistic" > /etc/hostname');
-  execSync('hostname optimistic');
-  execSync('hostnamectl set-hostname optimistic 2>/dev/null || true');
-  // Also add to /etc/hosts so it resolves
-  execSync('grep -q "optimistic" /etc/hosts || echo "127.0.0.1 optimistic" >> /etc/hosts');
-  console.log('\x1b[32m✓\x1b[0m Hostname set to "optimistic"');
-} catch (e) {
-  console.log('\x1b[33m⚠\x1b[0m Could not set hostname');
 }
 
 const server = app.listen(PORT, HOST, () => {
@@ -81,14 +73,9 @@ wss.on('connection', (ws, req) => {
       ...process.env,
       TERM: 'xterm-256color',
       HOME: `/home/${USERNAME}`,
-      PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-      HOSTNAME: 'optimistic'
+      PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
     }
   });
-  
-  // Don't send the hostname/clear command - it's already set system-wide
-  // Just clear any startup noise
-  shell.write('clear\r');
   
   shell.onData((data) => {
     const text = data.toString();
