@@ -9,6 +9,8 @@ const { execSync } = require('child_process');
 
 const PORT = process.env.PORT || 8080;
 const HOST = '0.0.0.0';
+const USERNAME = 'optimistic';
+const PASSWORD = 'optimistic';
 
 const app = express();
 app.use(express.static(__dirname));
@@ -17,44 +19,49 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Try to enable passwordless sudo for current user
+// Setup: install sudo and create user
+console.log('\x1b[36m╔════════════════════════════════════════════╗\x1b[0m');
+console.log('\x1b[36m║      Optimistic OS REAL Terminal           ║\x1b[0m');
+console.log('\x1b[36m╚════════════════════════════════════════════╝\x1b[0m');
+
 try {
-  const user = os.userInfo().username;
-  const sudoersLine = `${user} ALL=(ALL) NOPASSWD: ALL\n`;
-  try {
-    execSync('echo "' + sudoersLine.trim() + '" | sudo tee /etc/sudoers.d/99-nopasswd > /dev/null');
-    execSync('sudo chmod 440 /etc/sudoers.d/99-nopasswd');
-    console.log('\x1b[32m✓\x1b[0m Passwordless sudo configured');
-  } catch (e) {
-    console.log('\x1b[33m⚠\x1b[0m Could not configure passwordless sudo (may already be set)');
-  }
+  execSync('which sudo >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq sudo)');
+  console.log('\x1b[32m✓\x1b[0m sudo installed');
 } catch (e) {
-  // ignore
+  console.log('\x1b[33m⚠\x1b[0m sudo may already be installed');
+}
+
+try {
+  execSync(`id ${USERNAME} >/dev/null 2>&1 || useradd -m -s /bin/bash ${USERNAME}`);
+  execSync(`echo "${USERNAME}:${PASSWORD}" | chpasswd`);
+  execSync(`echo "${USERNAME} ALL=(ALL) ALL" > /etc/sudoers.d/${USERNAME}`);
+  execSync(`chmod 440 /etc/sudoers.d/${USERNAME}`);
+  console.log(`\x1b[32m✓\x1b[0m User "${USERNAME}" created with sudo access`);
+} catch (e) {
+  console.log(`\x1b[33m⚠\x1b[0m User setup issue (may already exist)`);
 }
 
 const server = app.listen(PORT, HOST, () => {
-  console.log(`\x1b[36m╔════════════════════════════════════════════╗\x1b[0m`);
-  console.log(`\x1b[36m║      Optimistic OS REAL Terminal           ║\x1b[0m`);
-  console.log(`\x1b[36m╚════════════════════════════════════════════╝\x1b[0m`);
   console.log(`\x1b[32m✓\x1b[0m Server running on http://${HOST}:${PORT}`);
-  console.log(`\x1b[32m✓\x1b[0m WebSocket ready\n`);
+  console.log(`\x1b[32m✓\x1b[0m WebSocket ready`);
+  console.log(`\x1b[33mℹ\x1b[0m Login: ${USERNAME} / Password: ${PASSWORD}\n`);
 });
 
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws, req) => {
-  let currentDir = os.homedir();
-  
   console.log(`\x1b[32m✓\x1b[0m Client connected from ${req.socket.remoteAddress}`);
   
-  const shell = pty.spawn('/bin/bash', ['-l'], {
+  // Spawn shell as the user (not root)
+  const shell = pty.spawn('su', ['-', USERNAME], {
     name: 'xterm-256color',
     cols: 80,
     rows: 24,
-    cwd: currentDir,
+    cwd: `/home/${USERNAME}`,
     env: {
       ...process.env,
       TERM: 'xterm-256color',
+      HOME: `/home/${USERNAME}`,
       PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
     }
   });
@@ -78,33 +85,10 @@ wss.on('connection', (ws, req) => {
       if (parsed.type === 'command') {
         const command = parsed.command;
         console.log(`\x1b[36m$\x1b[0m ${command}`);
-        
-        if (command.startsWith('cd ')) {
-          const newDir = command.substring(3).replace('~', os.homedir());
-          try {
-            process.chdir(newDir);
-            currentDir = process.cwd();
-            ws.send(JSON.stringify({ type: 'cwd', data: currentDir }));
-          } catch (err) {
-            ws.send(JSON.stringify({
-              type: 'output',
-              data: `bash: cd: ${command.substring(3)}: No such file or directory\r\n`
-            }));
-          }
-          return;
-        }
-        
-        if (command.trim() === 'clear') {
-          ws.send(JSON.stringify({ type: 'clear' }));
-          return;
-        }
-        
         shell.write(command + '\r');
-        
       } else if (parsed.type === 'cwd') {
-        ws.send(JSON.stringify({ type: 'cwd', data: currentDir }));
+        // shell handles cwd internally via cd commands
       }
-      
     } catch (e) {
       shell.write(data + '\r');
     }
@@ -114,13 +98,6 @@ wss.on('connection', (ws, req) => {
     shell.kill();
     console.log(`\x1b[31m✗\x1b[0m Client disconnected`);
   });
-  
-  ws.send(JSON.stringify({
-    type: 'ready',
-    data: `\x1b[32m✓ Connected to REAL terminal\x1b[0m\r\n\x1b[36mTry: sudo apt update && sudo apt install neofetch -y\x1b[0m\r\n`
-  }));
-  
-  ws.send(JSON.stringify({ type: 'cwd', data: currentDir }));
 });
 
 console.log(`\x1b[32m✓\x1b[0m Waiting for connections...`);
