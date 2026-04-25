@@ -66,6 +66,9 @@ wss.on('connection', (ws, req) => {
     }
   });
   
+  // Disable bracketed paste mode and other noisy features immediately
+  shell.write('bind "set enable-bracketed-paste off" 2>/dev/null; bind "set bell-style none" 2>/dev/null; stty -ixon 2>/dev/null; printf "\x1b[?2004l"; clear\r');
+  
   shell.onData((data) => {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'output', data }));
@@ -86,8 +89,6 @@ wss.on('connection', (ws, req) => {
         const command = parsed.command;
         console.log(`\x1b[36m$\x1b[0m ${command}`);
         shell.write(command + '\r');
-      } else if (parsed.type === 'cwd') {
-        // shell handles cwd internally via cd commands
       }
     } catch (e) {
       shell.write(data + '\r');
