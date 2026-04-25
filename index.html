@@ -114,17 +114,15 @@
     </div>
     <div class="terminal-container" id="terminal-container"></div>
     <div class="terminal-input-line">
-        <span class="prompt" id="prompt">user@optimistic:~$</span>
+        <span class="prompt" id="prompt">optimistic@optimistic:~$</span>
         <input type="text" class="input-field" id="command-input" autofocus autocomplete="off" spellcheck="false">
     </div>
 
     <script>
         let ws = null;
         let isConnected = false;
-        let currentDir = '~';
         let commandHistory = [];
         let historyIndex = -1;
-        let userInfo = { name: 'user', hostname: 'optimistic' };
 
         const container = document.getElementById('terminal-container');
         const inputField = document.getElementById('command-input');
@@ -132,7 +130,7 @@
         const statusSpan = document.getElementById('connection-status');
 
         function parseANSICodes(text) {
-            let html = text
+            return text
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
@@ -143,7 +141,6 @@
                 .replace(/\x1b\[36m/g, '<span class="ansi-cyan">')
                 .replace(/\x1b\[1m/g, '<span class="ansi-bold">')
                 .replace(/\x1b\[0m/g, '</span>');
-            return html;
         }
 
         function updateStatus(status, message) {
@@ -166,25 +163,11 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        function updatePrompt() {
-            const dir = currentDir === '~' ? '~' : currentDir.split('/').pop();
-            promptSpan.textContent = `${userInfo.name}@${userInfo.hostname}:${dir}$`;
-        }
-
         function sendCommand(cmd) {
             if (!cmd.trim()) return;
             
             commandHistory.unshift(cmd);
             historyIndex = -1;
-            
-            const dir = currentDir === '~' ? '~' : currentDir.split('/').pop();
-            const promptText = `${userInfo.name}@${userInfo.hostname}:${dir}$`;
-            
-            const cmdLine = document.createElement('div');
-            cmdLine.className = 'terminal-line';
-            cmdLine.innerHTML = `<span class="ansi-green">${promptText}</span> ${cmd.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}`;
-            container.appendChild(cmdLine);
-            container.scrollTop = container.scrollHeight;
             
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'command', command: cmd }));
@@ -201,29 +184,13 @@
             
             ws.onopen = () => {
                 updateStatus('connected', 'Connected');
-                ws.send(JSON.stringify({ type: 'cwd' }));
             };
             
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    
                     if (data.type === 'output') {
                         appendOutput(data.data);
-                    } else if (data.type === 'cwd') {
-                        const homeDir = '/home/' + userInfo.name;
-                        if (data.data === homeDir) {
-                            currentDir = '~';
-                        } else if (data.data.startsWith(homeDir)) {
-                            currentDir = '~' + data.data.substring(homeDir.length);
-                        } else {
-                            currentDir = data.data;
-                        }
-                        updatePrompt();
-                    } else if (data.type === 'ready') {
-                        appendOutput(data.data);
-                    } else if (data.type === 'clear') {
-                        container.innerHTML = '';
                     }
                 } catch (e) {
                     appendOutput(event.data);
@@ -232,7 +199,6 @@
             
             ws.onclose = () => {
                 updateStatus('disconnected', 'Disconnected');
-                appendOutput('\n\x1b[31mConnection lost. Reconnecting...\x1b[0m\n');
                 setTimeout(connectWebSocket, 3000);
             };
             
@@ -261,8 +227,6 @@
                     historyIndex = -1;
                     inputField.value = '';
                 }
-            } else if (e.key === 'Tab') {
-                e.preventDefault();
             }
         });
 
