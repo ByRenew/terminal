@@ -48,6 +48,15 @@ try {
   console.log(`\x1b[33m⚠\x1b[0m User setup issue (may already exist)`);
 }
 
+// Set clean hostname
+try {
+  execSync('echo "optimistic" > /etc/hostname');
+  execSync('hostname optimistic');
+  console.log('\x1b[32m✓\x1b[0m Hostname set to "optimistic"');
+} catch (e) {
+  console.log('\x1b[33m⚠\x1b[0m Could not set hostname');
+}
+
 const server = app.listen(PORT, HOST, () => {
   console.log(`\x1b[32m✓\x1b[0m Server running on http://${HOST}:${PORT}`);
   console.log(`\x1b[32m✓\x1b[0m WebSocket ready`);
@@ -68,7 +77,8 @@ wss.on('connection', (ws, req) => {
       ...process.env,
       TERM: 'xterm-256color',
       HOME: `/home/${USERNAME}`,
-      PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+      PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+      HOSTNAME: 'optimistic'
     }
   });
   
