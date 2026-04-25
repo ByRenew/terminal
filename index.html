@@ -103,8 +103,12 @@
         .terminal-line {
             white-space: pre-wrap;
             word-break: break-all;
-            min-height: 1.5em;
+            min-height: 1.2em;
             color: rgba(255, 255, 255, 0.7);
+        }
+
+        .terminal-line:empty {
+            min-height: 0.3em;
         }
 
         .terminal-input-area {
@@ -181,7 +185,6 @@
     <div class="terminal-container">
         <div class="terminal-header">
             <div class="terminal-title">
-                <!-- Replaced X-box icon with terminal prompt icon -->
                 <svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="4 17 10 11 4 5"></polyline>
                     <line x1="12" y1="19" x2="20" y2="19"></line>
@@ -210,15 +213,26 @@
 
         function cleanAnsi(text) {
             return text
+                // Bracketed paste mode
                 .replace(/\x1b\[\?2004[hl]/g, '')
+                // Line wrapping mode (neofetch)
+                .replace(/\x1b\[\?7[hl]/g, '')
+                // OSC sequences (window titles, etc.)
                 .replace(/\x1b\][^\x07]*\x07/g, '')
                 .replace(/\x1b\][^\x1b]*\x1b\\/g, '')
+                // Cursor movement
                 .replace(/\x1b\[[\d;]*[ABCDEFGHJKSTfmn]/g, '')
+                // Clear screen / line
                 .replace(/\x1b\[[\d;]*[JK]/g, '')
+                // Scroll region
                 .replace(/\x1b\[[\d;]*[rs]/g, '')
+                // Hide/show cursor
                 .replace(/\x1b\[\?25[hl]/g, '')
+                // Alternate screen buffer
                 .replace(/\x1b\[\??1049[hl]/g, '')
+                // Set/reset mode
                 .replace(/\x1b\[[\d;]*[hl]/g, '')
+                // Bell
                 .replace(/\x07/g, '');
         }
 
@@ -247,8 +261,14 @@
 
         function appendOutput(text) {
             if (!text) return;
+            // Collapse multiple consecutive blank lines to max 1
             const lines = text.split('\n');
+            let lastWasEmpty = false;
             for (const line of lines) {
+                const isEmpty = !line.trim();
+                if (isEmpty && lastWasEmpty) continue;
+                lastWasEmpty = isEmpty;
+                
                 const div = document.createElement('div');
                 div.className = 'terminal-line';
                 div.innerHTML = parseANSICodes(line) || '&nbsp;';
