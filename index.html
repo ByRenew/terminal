@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Optimistic Terminal</title>
+    <title>GNU Terminal</title>
     <style>
         * {
             margin: 0;
@@ -31,7 +31,6 @@
             overflow: hidden;
         }
 
-        /* Glass Container - matches browser style */
         .terminal-container {
             background: transparent;
             backdrop-filter: blur(20px);
@@ -43,7 +42,6 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        /* Header - matches browser tab bar */
         .terminal-header {
             background: transparent;
             backdrop-filter: blur(20px);
@@ -75,6 +73,7 @@
             color: rgba(255, 255, 255, 0.8);
             font-size: 13px;
             font-weight: 500;
+            letter-spacing: 1px;
         }
 
         .status {
@@ -86,17 +85,10 @@
             border: 1px solid rgba(255, 255, 255, 0.12);
         }
 
-        .status-connected {
-            color: #4ade80;
-        }
-        .status-disconnected {
-            color: #f87171;
-        }
-        .status-connecting {
-            color: #fbbf24;
-        }
+        .status-connected { color: #4ade80; }
+        .status-disconnected { color: #f87171; }
+        .status-connecting { color: #fbbf24; }
 
-        /* Output area - matches browser content */
         .terminal-output {
             flex: 1;
             overflow-y: auto;
@@ -114,7 +106,6 @@
             color: rgba(255, 255, 255, 0.7);
         }
 
-        /* Input area - matches browser toolbar */
         .terminal-input-area {
             display: flex;
             align-items: center;
@@ -161,7 +152,6 @@
             cursor: not-allowed;
         }
 
-        /* Scrollbar - matches browser */
         .terminal-output::-webkit-scrollbar {
             width: 4px;
         }
@@ -175,6 +165,16 @@
         .terminal-output::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.3);
         }
+
+        .ansi-black { color: #000000; }
+        .ansi-red { color: #f87171; }
+        .ansi-green { color: #4ade80; }
+        .ansi-yellow { color: #fbbf24; }
+        .ansi-blue { color: #60a5fa; }
+        .ansi-magenta { color: #c084fc; }
+        .ansi-cyan { color: #22d3ee; }
+        .ansi-white { color: #ffffff; }
+        .ansi-bold { font-weight: bold; }
     </style>
 </head>
 <body>
@@ -186,18 +186,18 @@
                 <path d="M8 8l4 4-4 4"/>
                 <path d="M16 16l-4-4 4-4"/>
             </svg>
-            <span>OPTIMISTIC TERMINAL</span>
+            <span>GNU TERMINAL</span>
         </div>
         <div class="status status-connecting" id="status">starting</div>
     </div>
     <div class="terminal-output" id="output">
         <div class="terminal-line" style="color:#4ade80">─────────────────────────────────────────</div>
-        <div class="terminal-line" style="color:#4ade80">    Optimistic Glass Terminal</div>
+        <div class="terminal-line" style="color:#4ade80">    GNU/Linux Terminal</div>
         <div class="terminal-line" style="color:#4ade80">─────────────────────────────────────────</div>
-        <div class="terminal-line" style="color:#fbbf24">Connecting to backend...</div>
+        <div class="terminal-line" style="color:#fbbf24">Starting bash...</div>
     </div>
     <div class="terminal-input-area">
-        <div class="terminal-prompt" id="prompt">user@optimistic:~$</div>
+        <div class="terminal-prompt" id="prompt">user@host:~$</div>
         <input type="text" class="terminal-input" id="input" autofocus>
     </div>
 </div>
@@ -210,6 +210,7 @@
     let history = [];
     let historyIndex = -1;
     let username = 'user';
+    let hostname = 'gnu';
     let retries = 0;
 
     const output = document.getElementById('output');
@@ -227,7 +228,7 @@
 
     function updatePrompt() {
         const dir = currentDir === '~' ? '~' : currentDir.split('/').pop();
-        prompt.textContent = `${username}@optimistic:${dir}$ `;
+        prompt.textContent = `${username}@${hostname}:${dir}$ `;
     }
 
     function escapeHtml(str) {
@@ -240,20 +241,41 @@
     }
 
     function stripAnsi(text) {
-        return text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+        let result = text;
+        result = result.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+        result = result.replace(/\x1b\([A-Z]/g, '');
+        result = result.replace(/\x1b=[0-9]/g, '');
+        result = result.replace(/\x1b\]0;[^\x07]*\x07/g, '');
+        result = result.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+        return result;
+    }
+
+    function parseAnsiColors(text) {
+        let html = text;
+        html = html.replace(/\x1b\[31m/g, '<span class="ansi-red">');
+        html = html.replace(/\x1b\[32m/g, '<span class="ansi-green">');
+        html = html.replace(/\x1b\[33m/g, '<span class="ansi-yellow">');
+        html = html.replace(/\x1b\[34m/g, '<span class="ansi-blue">');
+        html = html.replace(/\x1b\[35m/g, '<span class="ansi-magenta">');
+        html = html.replace(/\x1b\[36m/g, '<span class="ansi-cyan">');
+        html = html.replace(/\x1b\[37m/g, '<span class="ansi-white">');
+        html = html.replace(/\x1b\[1m/g, '<span class="ansi-bold">');
+        html = html.replace(/\x1b\[0m/g, '</span>');
+        return html;
     }
 
     function appendOutput(text, isCmd = false) {
         const div = document.createElement('div');
         div.className = 'terminal-line';
-        const cleanText = stripAnsi(text);
+        
         if (isCmd) {
-            div.innerHTML = `<span style="color:#4ade80">${escapeHtml(prompt.textContent)}</span><span style="color:#b8d8b0">${escapeHtml(cleanText)}</span>`;
-        } else if (cleanText.startsWith('✓') || cleanText.startsWith('Terminal ready')) {
-            div.innerHTML = `<span style="color:#4ade80">${escapeHtml(cleanText)}</span>`;
+            div.innerHTML = `<span style="color:#4ade80">${escapeHtml(prompt.textContent)}</span><span style="color:#b8d8b0">${escapeHtml(text)}</span>`;
         } else {
-            div.textContent = cleanText;
+            const cleanText = stripAnsi(text);
+            const coloredText = parseAnsiColors(cleanText);
+            div.innerHTML = coloredText;
         }
+        
         output.appendChild(div);
         div.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
@@ -265,18 +287,18 @@
         historyIndex = -1;
         appendOutput(cmd, true);
         
-        if (cmd === 'clear') {
+        if (cmd === 'clear' || cmd === 'cls') {
             output.innerHTML = '';
             const welcome = document.createElement('div');
             welcome.className = 'terminal-line';
             welcome.style.color = '#4ade80';
-            welcome.textContent = '─────────────────────────────────────────\n    Optimistic Glass Terminal\n─────────────────────────────────────────';
+            welcome.textContent = '─────────────────────────────────────────\n    GNU/Linux Terminal\n─────────────────────────────────────────';
             output.appendChild(welcome);
             return;
         }
         
         if (cmd === 'exit') {
-            appendOutput('Closing terminal...');
+            appendOutput('\x1b[33mClosing terminal...\x1b[0m');
             setTimeout(() => {
                 if (ws) ws.close();
                 window.close();
@@ -287,7 +309,7 @@
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(cmd);
         } else {
-            appendOutput('Not connected');
+            appendOutput('\x1b[31mNot connected to server\x1b[0m');
         }
     }
 
@@ -303,7 +325,9 @@
             ws.onopen = () => {
                 setStatus('connected', 'connected');
                 retries = 0;
-                appendOutput('Terminal ready');
+                appendOutput('\x1b[32m✓ GNU Terminal ready\x1b[0m');
+                appendOutput('\x1b[36mType commands below. Use sudo for admin.\x1b[0m');
+                appendOutput('');
                 ws.send('__cwd__');
             };
             
@@ -322,6 +346,8 @@
                             currentDir = data.data;
                         }
                         updatePrompt();
+                    } else if (data.type === 'ready') {
+                        appendOutput(`\x1b[32m${data.message}\x1b[0m`);
                     }
                 } catch(e) {
                     appendOutput(e.data || '');
@@ -330,20 +356,21 @@
             
             ws.onerror = () => {
                 setStatus('disconnected', 'error');
+                appendOutput('\x1b[31m✗ WebSocket error\x1b[0m');
             };
             
             ws.onclose = () => {
                 setStatus('disconnected', 'disconnected');
-                appendOutput('Connection lost');
+                appendOutput('\x1b[31m✗ Connection lost\x1b[0m');
                 
                 if (retries < 5) {
                     retries++;
-                    appendOutput(`Reconnecting in ${retries}s...`);
+                    appendOutput(`\x1b[33m⚠ Reconnecting in ${retries}s...\x1b[0m`);
                     setTimeout(connect, retries * 1000);
                 }
             };
         } catch(e) {
-            appendOutput('Failed to connect');
+            appendOutput(`\x1b[31mFailed to connect: ${e.message}\x1b[0m`);
             setStatus('disconnected', 'error');
         }
     }
@@ -368,6 +395,14 @@
                 historyIndex = -1;
                 input.value = '';
             }
+        } else if (e.key === 'l' && e.ctrlKey) {
+            e.preventDefault();
+            output.innerHTML = '';
+            const welcome = document.createElement('div');
+            welcome.className = 'terminal-line';
+            welcome.style.color = '#4ade80';
+            welcome.textContent = '─────────────────────────────────────────\n    GNU/Linux Terminal\n─────────────────────────────────────────';
+            output.appendChild(welcome);
         }
     });
 
