@@ -21,8 +21,8 @@
             --text-bright: rgba(255, 255, 255, 0.95);
         }
 
-        body {
-            background: transparent;
+        html, body {
+            background: transparent !important;
             color: var(--text);
             font-family: 'SF Mono', 'Courier New', monospace;
             height: 100vh;
@@ -32,7 +32,7 @@
         }
 
         .terminal-container {
-            background: transparent;
+            background: transparent !important;
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             height: 100vh;
@@ -43,7 +43,7 @@
         }
 
         .terminal-header {
-            background: transparent;
+            background: transparent !important;
             backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             padding: 8px 12px;
@@ -95,7 +95,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 16px;
-            background: transparent;
+            background: transparent !important;
             font-size: 12px;
             line-height: 1.5;
         }
@@ -112,7 +112,7 @@
             align-items: center;
             gap: 8px;
             padding: 10px 12px;
-            background: transparent;
+            background: transparent !important;
             backdrop-filter: blur(20px);
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             flex-shrink: 0;
@@ -181,10 +181,10 @@
     <div class="terminal-container">
         <div class="terminal-header">
             <div class="terminal-title">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5">
-                    <path d="M4 4h16v16H4z"/>
-                    <path d="M8 8l4 4-4 4"/>
-                    <path d="M16 16l-4-4 4-4"/>
+                <!-- Replaced X-box icon with terminal prompt icon -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="4 17 10 11 4 5"></polyline>
+                    <line x1="12" y1="19" x2="20" y2="19"></line>
                 </svg>
                 <span>OPTIMISTIC TERMINAL</span>
             </div>
