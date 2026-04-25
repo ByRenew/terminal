@@ -129,8 +129,32 @@
         const promptSpan = document.getElementById('prompt');
         const statusSpan = document.getElementById('connection-status');
 
-        function parseANSICodes(text) {
+        // Strip ALL problematic ANSI sequences
+        function cleanAnsi(text) {
             return text
+                // Bracketed paste mode
+                .replace(/\x1b\[\?2004[hl]/g, '')
+                // OSC sequences (window titles, etc.)
+                .replace(/\x1b\][^\x07]*\x07/g, '')
+                .replace(/\x1b\][^\x1b]*\x1b\\/g, '')
+                // Cursor movement
+                .replace(/\x1b\[[\d;]*[ABCDEFGHJKSTfmn]/g, '')
+                // Clear screen / line
+                .replace(/\x1b\[[\d;]*[JK]/g, '')
+                // Scroll region
+                .replace(/\x1b\[[\d;]*[rs]/g, '')
+                // Hide/show cursor
+                .replace(/\x1b\[\?25[hl]/g, '')
+                // Alternate screen buffer
+                .replace(/\x1b\[\??1049[hl]/g, '')
+                // Set/reset mode
+                .replace(/\x1b\[[\d;]*[hl]/g, '')
+                // Bell
+                .replace(/\x07/g, '');
+        }
+
+        function parseANSICodes(text) {
+            let html = cleanAnsi(text)
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
@@ -141,6 +165,7 @@
                 .replace(/\x1b\[36m/g, '<span class="ansi-cyan">')
                 .replace(/\x1b\[1m/g, '<span class="ansi-bold">')
                 .replace(/\x1b\[0m/g, '</span>');
+            return html;
         }
 
         function updateStatus(status, message) {
