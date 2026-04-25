@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;  // Railway uses dynamic port, default to 8080
 
 app.use(express.static(__dirname));
 
@@ -13,11 +13,12 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Create HTTP server first
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Terminal server running on port ${PORT}`);
-  console.log(`WebSocket endpoint: ws://localhost:${PORT}`);
+  console.log(`HTTP server running on port ${PORT}`);
 });
 
+// Attach WebSocket to the same server
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
@@ -71,3 +72,6 @@ wss.on('connection', (ws) => {
     console.log('Client disconnected');
   });
 });
+
+// Log that server is ready
+console.log(`Terminal server starting on port ${PORT}`);
