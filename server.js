@@ -1,11 +1,11 @@
 const express = require('express');
 const WebSocket = require('ws');
-const { spawn } = require('child_process');
+const pty = require('node-pty');
 const os = require('os');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 8080;  // Railway uses dynamic port, default to 8080
+const PORT = process.env.PORT || 8080;
 
 app.use(express.static(__dirname));
 
@@ -13,34 +13,34 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Create HTTP server first
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`HTTP server running on port ${PORT}`);
 });
 
-// Attach WebSocket to the same server
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
   let currentDir = os.homedir();
-  let shell = null;
   
   console.log('Client connected');
   
-  shell = spawn('/bin/bash', ['-l'], {
+  const shell = pty.spawn('/bin/bash', ['-l'], {
+    name: 'xterm-256color',
+    cols: 80,
+    rows: 24,
     cwd: currentDir,
-    env: { ...process.env, TERM: 'xterm-256color', PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' }
+    env: { 
+      ...process.env, 
+      TERM: 'xterm-256color',
+      PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+    }
   });
   
-  shell.stdout.on('data', (data) => {
-    ws.send(JSON.stringify({ type: 'output', data: data.toString() }));
+  shell.onData((data) => {
+    ws.send(JSON.stringify({ type: 'output', data }));
   });
   
-  shell.stderr.on('data', (data) => {
-    ws.send(JSON.stringify({ type: 'output', data: `\x1b[31m${data.toString()}\x1b[0m` }));
-  });
-  
-  shell.on('close', () => {
+  shell.onExit(() => {
     ws.close();
   });
   
@@ -62,16 +62,11 @@ wss.on('connection', (ws) => {
       return;
     }
     
-    if (shell && shell.stdin) {
-      shell.stdin.write(cmd + '\n');
-    }
+    shell.write(cmd + '\r');
   });
   
   ws.on('close', () => {
-    if (shell) shell.kill();
+    shell.kill();
     console.log('Client disconnected');
   });
 });
-
-// Log that server is ready
-console.log(`Terminal server starting on port ${PORT}`);
