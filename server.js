@@ -21,7 +21,7 @@ app.get('/', (req, res) => {
 
 // Setup: install sudo and create user
 console.log('\x1b[36m╔════════════════════════════════════════════╗\x1b[0m');
-console.log('\x1b[36m║      Optimistic Terminal                   ║\x1b[0m');
+console.log('\x1b[36m║            Optimistic Terminal             ║\x1b[0m');
 console.log('\x1b[36m╚════════════════════════════════════════════╝\x1b[0m');
 
 try {
@@ -47,11 +47,13 @@ try {
   console.log(`\x1b[33m⚠\x1b[0m User setup issue (may already exist)`);
 }
 
-// Set clean hostname BEFORE starting server
+// Set clean hostname at SYSTEM LEVEL before anything starts
 try {
   execSync('echo "optimistic" > /etc/hostname');
   execSync('hostname optimistic');
-  process.env.HOSTNAME = 'optimistic';
+  execSync('hostnamectl set-hostname optimistic 2>/dev/null || true');
+  // Also add to /etc/hosts so it resolves
+  execSync('grep -q "optimistic" /etc/hosts || echo "127.0.0.1 optimistic" >> /etc/hosts');
   console.log('\x1b[32m✓\x1b[0m Hostname set to "optimistic"');
 } catch (e) {
   console.log('\x1b[33m⚠\x1b[0m Could not set hostname');
@@ -80,13 +82,13 @@ wss.on('connection', (ws, req) => {
       TERM: 'xterm-256color',
       HOME: `/home/${USERNAME}`,
       PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-      HOSTNAME: 'optimistic',
-      PS1: '\\u@optimistic:\\W\\$ '
+      HOSTNAME: 'optimistic'
     }
   });
   
-  // Force hostname in the shell session
-  shell.write('export HOSTNAME=optimistic; hostname optimistic 2>/dev/null; clear\r');
+  // Don't send the hostname/clear command - it's already set system-wide
+  // Just clear any startup noise
+  shell.write('clear\r');
   
   shell.onData((data) => {
     const text = data.toString();
@@ -94,7 +96,6 @@ wss.on('connection', (ws, req) => {
     // Auto-detect sudo password prompt and auto-fill
     if (text.includes('[sudo] password for') || text.includes('Password:')) {
       waitingForPassword = true;
-      // Small delay to let the prompt render, then auto-type password
       setTimeout(() => {
         shell.write(PASSWORD + '\r');
         waitingForPassword = false;
