@@ -1,1382 +1,352 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>OptimisticOS</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Optimistic Terminal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    :root {
-      --desk-bg: #0d0f14;
-      --glass-bg: rgba(18, 21, 30, 0.82);
-      --glass-border: rgba(255,255,255,0.08);
-      --glass-border-light: rgba(255,255,255,0.14);
-      --bar-bg: rgba(10,12,18,0.92);
-      --accent: #5af0b0;
-      --accent2: #5b9cf6;
-      --accent3: #f5a623;
-      --text: rgba(255,255,255,0.82);
-      --text-dim: rgba(255,255,255,0.38);
-      --text-bright: #fff;
-      --win-header: rgba(20,24,36,0.98);
-      --win-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.5);
-      --radius: 14px;
-      --font-mono: 'IBM Plex Mono', monospace;
-      --font-ui: 'IBM Plex Sans', sans-serif;
-    }
+        :root {
+            --bg: transparent;
+            --chrome-bg: transparent;
+            --chrome-border: rgba(255, 255, 255, 0.15);
+            --text: rgba(255, 255, 255, 0.7);
+            --text-dim: rgba(255, 255, 255, 0.4);
+            --text-bright: rgba(255, 255, 255, 0.95);
+        }
 
-    html, body {
-      width: 100%; height: 100%;
-      background: var(--desk-bg);
-      font-family: var(--font-ui);
-      overflow: hidden;
-      color: var(--text);
-      user-select: none;
-    }
+        html, body {
+            background: transparent !important;
+            color: var(--text);
+            font-family: 'SF Mono', 'Courier New', monospace;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
 
-    /* ── WALLPAPER ── */
-    #wallpaper {
-      position: fixed; inset: 0; z-index: 0;
-      background:
-        radial-gradient(ellipse 80% 60% at 15% 85%, rgba(90,240,176,0.06) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 70% at 88% 10%, rgba(91,156,246,0.07) 0%, transparent 55%),
-        radial-gradient(ellipse 40% 40% at 50% 50%, rgba(245,166,35,0.03) 0%, transparent 60%),
-        #0d0f14;
-    }
-    #wallpaper canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.35; }
+        .terminal-container {
+            background: transparent !important;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
 
-    /* ── TASKBAR ── */
-    #taskbar {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
-      height: 52px;
-      background: var(--bar-bg);
-      backdrop-filter: blur(32px);
-      border-top: 1px solid var(--glass-border);
-      display: flex; align-items: center; padding: 0 16px; gap: 6px;
-    }
+        .terminal-header {
+            background: transparent !important;
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
 
-    .tb-logo {
-      font-family: var(--font-mono);
-      font-size: 13px; font-weight: 600;
-      color: var(--accent);
-      letter-spacing: 0.08em;
-      padding: 6px 12px;
-      border: 1px solid rgba(90,240,176,0.25);
-      border-radius: 8px;
-      background: rgba(90,240,176,0.06);
-      cursor: default;
-      flex-shrink: 0;
-    }
+        .terminal-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 6px 16px;
+        }
 
-    .tb-divider {
-      width: 1px; height: 24px;
-      background: var(--glass-border);
-      margin: 0 4px; flex-shrink: 0;
-    }
+        .terminal-title svg {
+            width: 18px;
+            height: 18px;
+        }
 
-    .tb-apps { display: flex; gap: 4px; flex: 1; align-items: center; }
+        .terminal-title span {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 13px;
+            font-weight: 500;
+        }
 
-    .tb-app-btn {
-      display: flex; align-items: center; gap: 7px;
-      padding: 5px 11px; border-radius: 8px;
-      background: transparent; border: 1px solid transparent;
-      color: var(--text-dim); font-family: var(--font-ui); font-size: 12px;
-      cursor: pointer; transition: all 0.15s; white-space: nowrap;
-    }
-    .tb-app-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
-    .tb-app-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); border-color: var(--glass-border); }
-    .tb-app-btn.active { background: rgba(90,240,176,0.08); color: var(--accent); border-color: rgba(90,240,176,0.2); }
-    .tb-app-btn .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+        .connection-status {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            font-family: monospace;
+        }
 
-    .tb-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .status-connected { color: #4ade80; }
+        .status-disconnected { color: #f87171; }
+        .status-connecting { color: #fbbf24; }
 
-    .tb-clock {
-      font-family: var(--font-mono); font-size: 12px;
-      color: var(--text-dim);
-    }
+        .terminal-output {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: transparent !important;
+            font-size: 12px;
+            line-height: 1.5;
+        }
 
-    .ws-status {
-      display: flex; align-items: center; gap: 5px;
-      font-family: var(--font-mono); font-size: 11px;
-      color: var(--text-dim);
-    }
-    .ws-dot { width: 6px; height: 6px; border-radius: 50%; background: #f87171; transition: background 0.3s; }
-    .ws-dot.connected { background: var(--accent); box-shadow: 0 0 6px rgba(90,240,176,0.5); }
+        .terminal-line {
+            white-space: pre-wrap;
+            word-break: break-all;
+            min-height: 1.2em;
+            color: rgba(255, 255, 255, 0.7);
+        }
 
-    /* ── DOCK ── */
-    #dock {
-      position: fixed; bottom: 62px; left: 50%; transform: translateX(-50%);
-      z-index: 999;
-      background: rgba(12,15,22,0.88);
-      backdrop-filter: blur(24px);
-      border: 1px solid var(--glass-border);
-      border-radius: 18px;
-      padding: 8px 12px;
-      display: flex; gap: 6px; align-items: center;
-    }
+        .terminal-line:empty {
+            min-height: 0.3em;
+        }
 
-    .dock-icon {
-      width: 48px; height: 48px;
-      border-radius: 12px;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 3px;
-      cursor: pointer;
-      border: 1px solid transparent;
-      transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
-      position: relative;
-      flex-shrink: 0;
-    }
-    .dock-icon:hover { transform: translateY(-6px) scale(1.12); border-color: var(--glass-border-light); }
-    .dock-icon:active { transform: translateY(-3px) scale(1.05); }
-    .dock-icon svg { width: 22px; height: 22px; }
-    .dock-icon .icon-label {
-      font-size: 8px; font-weight: 500; letter-spacing: 0.04em;
-      color: var(--text-dim); line-height: 1;
-    }
-    .dock-icon.terminal-icon { background: rgba(90,240,176,0.08); }
-    .dock-icon.terminal-icon svg { color: var(--accent); }
-    .dock-icon.editor-icon { background: rgba(91,156,246,0.08); }
-    .dock-icon.editor-icon svg { color: var(--accent2); }
-    .dock-icon.files-icon { background: rgba(245,166,35,0.08); }
-    .dock-icon.files-icon svg { color: var(--accent3); }
-    .dock-icon.sys-icon { background: rgba(255,100,100,0.08); }
-    .dock-icon.sys-icon svg { color: #f87171; }
+        .terminal-input-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            background: transparent !important;
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
 
-    /* ── WINDOWS ── */
-    .window {
-      position: fixed; z-index: 100;
-      background: var(--glass-bg);
-      backdrop-filter: blur(28px);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius);
-      box-shadow: var(--win-shadow);
-      display: flex; flex-direction: column;
-      overflow: hidden;
-      transition: box-shadow 0.2s, border-color 0.2s;
-      min-width: 320px; min-height: 200px;
-    }
-    .window.focused {
-      border-color: var(--glass-border-light);
-      box-shadow: var(--win-shadow), 0 0 0 1px rgba(255,255,255,0.05);
-      z-index: 200;
-    }
-    .window.minimized { display: none; }
-    .window.maximized { top: 0 !important; left: 0 !important; width: 100% !important; height: calc(100vh - 52px) !important; border-radius: 0; }
+        .terminal-prompt {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 8px 14px;
+            color: #4ade80;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: nowrap;
+        }
 
-    .win-header {
-      background: var(--win-header);
-      border-bottom: 1px solid var(--glass-border);
-      padding: 0 14px;
-      height: 40px;
-      display: flex; align-items: center; gap: 10px;
-      cursor: grab; flex-shrink: 0;
-      -webkit-user-select: none; user-select: none;
-    }
-    .win-header:active { cursor: grabbing; }
+        .terminal-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 8px 14px;
+            color: rgba(255, 255, 255, 0.9);
+            font-family: monospace;
+            font-size: 12px;
+            outline: none;
+        }
 
-    .win-controls { display: flex; gap: 6px; flex-shrink: 0; }
-    .wc {
-      width: 12px; height: 12px; border-radius: 50%;
-      cursor: pointer; border: none; outline: none;
-      transition: filter 0.15s, transform 0.1s;
-      flex-shrink: 0;
-    }
-    .wc:hover { filter: brightness(1.3); transform: scale(1.1); }
-    .wc.close { background: #ff5f57; }
-    .wc.minimize { background: #ffbd2e; }
-    .wc.maximize { background: #28c840; }
+        .terminal-input:focus {
+            border-color: rgba(255, 255, 255, 0.25);
+            background: rgba(0, 0, 0, 0.4);
+        }
 
-    .win-title {
-      display: flex; align-items: center; gap: 7px;
-      flex: 1; min-width: 0;
-    }
-    .win-title svg { width: 14px; height: 14px; flex-shrink: 0; }
-    .win-title span {
-      font-family: var(--font-ui); font-size: 12px; font-weight: 500;
-      color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
+        .terminal-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
-    .win-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+        .terminal-output::-webkit-scrollbar {
+            width: 4px;
+        }
+        .terminal-output::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .terminal-output::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        .terminal-output::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
 
-    /* resize handle */
-    .win-resize {
-      position: absolute; right: 0; bottom: 0;
-      width: 16px; height: 16px;
-      cursor: se-resize; z-index: 10;
-    }
-    .win-resize::after {
-      content: '';
-      position: absolute; right: 4px; bottom: 4px;
-      width: 6px; height: 6px;
-      border-right: 2px solid var(--glass-border-light);
-      border-bottom: 2px solid var(--glass-border-light);
-    }
-
-    /* ── TERMINAL WINDOW ── */
-    #terminal-output {
-      flex: 1; overflow-y: auto;
-      padding: 14px 16px;
-      font-family: var(--font-mono); font-size: 12px; line-height: 1.6;
-      background: transparent;
-      color: rgba(255,255,255,0.75);
-    }
-    .terminal-line { white-space: pre-wrap; word-break: break-all; min-height: 1.1em; }
-    #terminal-output::-webkit-scrollbar { width: 4px; }
-    #terminal-output::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-    #terminal-output::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 4px; }
-
-    .term-input-row {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 14px;
-      border-top: 1px solid var(--glass-border);
-      flex-shrink: 0;
-    }
-    .term-prompt {
-      font-family: var(--font-mono); font-size: 12px;
-      color: var(--accent); white-space: nowrap; flex-shrink: 0;
-    }
-    .term-input {
-      flex: 1; background: transparent; border: none; outline: none;
-      font-family: var(--font-mono); font-size: 12px; color: rgba(255,255,255,0.9);
-      caret-color: var(--accent);
-    }
-
-    /* ── EDITOR WINDOW ── */
-    .editor-toolbar {
-      display: flex; align-items: center; gap: 6px;
-      padding: 8px 14px; border-bottom: 1px solid var(--glass-border);
-      flex-shrink: 0;
-    }
-    .editor-toolbar span { font-size: 11px; color: var(--text-dim); flex: 1; font-family: var(--font-mono); }
-    .ed-btn {
-      padding: 3px 10px; border-radius: 6px;
-      border: 1px solid var(--glass-border); background: rgba(255,255,255,0.04);
-      color: var(--text-dim); font-family: var(--font-ui); font-size: 11px;
-      cursor: pointer; transition: all 0.12s;
-    }
-    .ed-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
-    .ed-btn.primary { border-color: rgba(91,156,246,0.3); background: rgba(91,156,246,0.08); color: var(--accent2); }
-    .ed-btn.primary:hover { background: rgba(91,156,246,0.14); }
-    textarea#editor-area {
-      flex: 1; width: 100%; border: none; outline: none; resize: none;
-      background: transparent;
-      font-family: var(--font-mono); font-size: 12px; line-height: 1.7;
-      color: rgba(255,255,255,0.82); padding: 14px 16px;
-      tab-size: 2;
-    }
-    textarea#editor-area::selection { background: rgba(91,156,246,0.25); }
-
-    /* ── FILE MANAGER ── */
-    .fm-toolbar {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 14px; border-bottom: 1px solid var(--glass-border);
-      flex-shrink: 0;
-    }
-    .fm-path {
-      flex: 1; font-family: var(--font-mono); font-size: 11px;
-      color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .fm-btn {
-      padding: 3px 10px; border-radius: 6px;
-      border: 1px solid var(--glass-border); background: rgba(255,255,255,0.04);
-      color: var(--text-dim); font-family: var(--font-ui); font-size: 11px;
-      cursor: pointer; transition: all 0.12s;
-    }
-    .fm-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
-    #fm-list {
-      flex: 1; overflow-y: auto; padding: 8px;
-    }
-    #fm-list::-webkit-scrollbar { width: 4px; }
-    #fm-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
-    .fm-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 7px 10px; border-radius: 8px; cursor: pointer;
-      transition: background 0.12s;
-      font-size: 12px;
-    }
-    .fm-item:hover { background: rgba(255,255,255,0.06); }
-    .fm-item:active { background: rgba(255,255,255,0.1); }
-    .fm-item svg { width: 16px; height: 16px; flex-shrink: 0; }
-    .fm-item .fm-name { flex: 1; font-family: var(--font-ui); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .fm-item .fm-size { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
-    .fm-item.dir svg { color: var(--accent3); }
-    .fm-item.file svg { color: var(--accent2); }
-
-    /* ── SYSMON WINDOW ── */
-    .sysmon-body {
-      flex: 1; overflow-y: auto; padding: 14px;
-      display: flex; flex-direction: column; gap: 12px;
-    }
-    .sysmon-body::-webkit-scrollbar { width: 4px; }
-    .sysmon-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
-    .sys-section-title {
-      font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
-      color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px;
-    }
-    .sys-meter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-    .sys-meter-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); width: 36px; flex-shrink: 0; }
-    .sys-meter-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.07); border-radius: 4px; overflow: hidden; }
-    .sys-meter-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
-    .sys-meter-fill.cpu { background: linear-gradient(90deg, var(--accent2), #a78bfa); }
-    .sys-meter-fill.mem { background: linear-gradient(90deg, var(--accent), #a3e635); }
-    .sys-meter-fill.disk { background: linear-gradient(90deg, var(--accent3), #fb923c); }
-    .sys-meter-val { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); width: 36px; text-align: right; flex-shrink: 0; }
-    .sys-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .sys-info-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--glass-border);
-      border-radius: 8px; padding: 10px;
-    }
-    .sys-info-card .label { font-size: 10px; color: var(--text-dim); margin-bottom: 3px; letter-spacing: 0.05em; }
-    .sys-info-card .value { font-family: var(--font-mono); font-size: 12px; color: var(--text-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .proc-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 11px; }
-    .proc-table th { text-align: left; padding: 4px 8px; color: var(--text-dim); font-weight: 500; border-bottom: 1px solid var(--glass-border); }
-    .proc-table td { padding: 5px 8px; color: var(--text); }
-    .proc-table tr:hover td { background: rgba(255,255,255,0.04); }
-
-    /* ── APP STORE ── */
-    .dock-icon.store-icon { background: rgba(168,85,247,0.1); }
-    .dock-icon.store-icon svg { color: #c084fc; }
-
-    .store-body {
-      flex: 1; overflow: hidden; display: flex; flex-direction: column;
-    }
-    .store-search-bar {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 14px; border-bottom: 1px solid var(--glass-border);
-      flex-shrink: 0;
-    }
-    .store-search-bar svg { width: 14px; height: 14px; color: var(--text-dim); flex-shrink: 0; }
-    .store-search-input {
-      flex: 1; background: transparent; border: none; outline: none;
-      font-family: var(--font-mono); font-size: 12px; color: var(--text);
-      caret-color: #c084fc;
-    }
-    .store-search-input::placeholder { color: var(--text-dim); }
-    .store-beta-badge {
-      font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
-      color: #c084fc; background: rgba(192,132,252,0.12);
-      border: 1px solid rgba(192,132,252,0.25);
-      padding: 2px 7px; border-radius: 20px;
-      flex-shrink: 0;
-    }
-    .store-cats {
-      display: flex; gap: 4px; padding: 8px 14px;
-      border-bottom: 1px solid var(--glass-border);
-      overflow-x: auto; flex-shrink: 0;
-    }
-    .store-cats::-webkit-scrollbar { display: none; }
-    .store-cat-btn {
-      padding: 3px 11px; border-radius: 20px; white-space: nowrap;
-      font-family: var(--font-ui); font-size: 11px; font-weight: 500;
-      border: 1px solid var(--glass-border);
-      background: rgba(255,255,255,0.03); color: var(--text-dim);
-      cursor: pointer; transition: all 0.12s; flex-shrink: 0;
-    }
-    .store-cat-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); }
-    .store-cat-btn.active { background: rgba(192,132,252,0.12); color: #c084fc; border-color: rgba(192,132,252,0.3); }
-
-    .store-grid {
-      flex: 1; overflow-y: auto; padding: 10px;
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;
-      align-content: start;
-    }
-    .store-grid::-webkit-scrollbar { width: 4px; }
-    .store-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
-
-    .pkg-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--glass-border);
-      border-radius: 10px; padding: 12px;
-      display: flex; flex-direction: column; gap: 8px;
-      transition: border-color 0.15s, background 0.15s;
-    }
-    .pkg-card:hover { background: rgba(255,255,255,0.05); border-color: var(--glass-border-light); }
-    .pkg-card-top { display: flex; align-items: flex-start; gap: 10px; }
-    .pkg-icon {
-      width: 36px; height: 36px; border-radius: 9px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
-    }
-    .pkg-info { flex: 1; min-width: 0; }
-    .pkg-name { font-size: 13px; font-weight: 600; color: var(--text-bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pkg-apt { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-top: 1px; }
-    .pkg-desc { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
-    .pkg-footer { display: flex; align-items: center; gap: 6px; }
-    .pkg-size { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); flex: 1; }
-    .pkg-install-btn {
-      padding: 4px 14px; border-radius: 6px; font-size: 11px; font-weight: 600;
-      font-family: var(--font-ui); cursor: pointer; border: none; outline: none;
-      transition: all 0.15s; white-space: nowrap;
-    }
-    .pkg-install-btn.install {
-      background: rgba(192,132,252,0.15); color: #c084fc;
-      border: 1px solid rgba(192,132,252,0.3);
-    }
-    .pkg-install-btn.install:hover { background: rgba(192,132,252,0.25); }
-    .pkg-install-btn.installing {
-      background: rgba(251,191,36,0.1); color: #fbbf24;
-      border: 1px solid rgba(251,191,36,0.25);
-      cursor: not-allowed; animation: pulse-btn 1.2s ease infinite;
-    }
-    .pkg-install-btn.installed {
-      background: rgba(74,222,128,0.1); color: #4ade80;
-      border: 1px solid rgba(74,222,128,0.25);
-    }
-    .pkg-install-btn.remove {
-      background: rgba(248,113,113,0.1); color: #f87171;
-      border: 1px solid rgba(248,113,113,0.25);
-    }
-    .pkg-install-btn.remove:hover { background: rgba(248,113,113,0.2); }
-    @keyframes pulse-btn {
-      0%,100% { opacity: 1; } 50% { opacity: 0.55; }
-    }
-
-    /* install log overlay */
-    .store-log-overlay {
-      position: absolute; inset: 0; z-index: 50;
-      background: rgba(10,12,18,0.96);
-      display: flex; flex-direction: column;
-      padding: 16px;
-    }
-    .store-log-overlay.hidden { display: none; }
-    .store-log-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-shrink: 0; }
-    .store-log-title { font-size: 13px; font-weight: 600; color: var(--text-bright); flex: 1; }
-    .store-log-close {
-      padding: 3px 10px; border-radius: 6px; font-size: 11px;
-      background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border);
-      color: var(--text-dim); cursor: pointer; font-family: var(--font-ui);
-    }
-    .store-log-close:hover { color: var(--text); }
-    .store-log-output {
-      flex: 1; overflow-y: auto; font-family: var(--font-mono); font-size: 11px;
-      line-height: 1.6; color: rgba(255,255,255,0.7);
-      background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border);
-      border-radius: 8px; padding: 10px;
-    }
-    .store-log-output::-webkit-scrollbar { width: 3px; }
-    .store-log-output::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
-    .store-log-status {
-      margin-top: 10px; flex-shrink: 0; display: flex; align-items: center; gap: 8px;
-      font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
-    }
-    .log-spinner {
-      width: 12px; height: 12px; border-radius: 50%;
-      border: 2px solid rgba(192,132,252,0.2);
-      border-top-color: #c084fc;
-      animation: spin 0.7s linear infinite; flex-shrink: 0;
-    }
-    .log-spinner.done { border-top-color: #4ade80; border-color: rgba(74,222,128,0.3); animation: none; }
-    .log-spinner.error { border-top-color: #f87171; border-color: rgba(248,113,113,0.3); animation: none; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── ANSI ── */
-    .a-red { color: #ff5f57; } .a-green { color: #4ade80; }
-    .a-yellow { color: #fbbf24; } .a-blue { color: #6ab0f5; }
-    .a-cyan { color: #5ee7e7; } .a-bold { font-weight: 600; }
-    .a-dim { color: rgba(255,255,255,0.4); }
-
-    /* ── LAUNCH ANIMATION ── */
-    .window { animation: winAppear 0.2s cubic-bezier(0.34,1.56,0.64,1); }
-    @keyframes winAppear {
-      from { opacity: 0; transform: scale(0.92) translateY(8px); }
-      to   { opacity: 1; transform: scale(1) translateY(0); }
-    }
-
-    #desktop-hint {
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      text-align: center; pointer-events: none; z-index: 10;
-      transition: opacity 0.4s;
-    }
-    #desktop-hint .hint-os { font-family: var(--font-mono); font-size: 28px; font-weight: 600; color: rgba(255,255,255,0.07); letter-spacing: 0.15em; }
-    #desktop-hint .hint-sub { font-family: var(--font-ui); font-size: 12px; color: rgba(255,255,255,0.12); margin-top: 6px; letter-spacing: 0.08em; }
-  </style>
+        .ansi-red { color: #ff5f57; }
+        .ansi-green { color: #4ade80; }
+        .ansi-yellow { color: #fbbf24; }
+        .ansi-blue { color: #6ab0f5; }
+        .ansi-cyan { color: #6ab0f5; }
+        .ansi-bold { font-weight: bold; }
+    </style>
 </head>
 <body>
-
-<!-- Wallpaper -->
-<div id="wallpaper"><canvas id="bg-canvas"></canvas></div>
-
-<!-- Desktop hint -->
-<div id="desktop-hint">
-  <div class="hint-os">OPTIMISTIC OS</div>
-  <div class="hint-sub">click an app in the dock to get started</div>
-</div>
-
-<!-- Taskbar -->
-<div id="taskbar">
-  <div class="tb-logo">⬡ OOS</div>
-  <div class="tb-divider"></div>
-  <div class="tb-apps" id="tb-apps"></div>
-  <div class="tb-right">
-    <div class="ws-status"><div class="ws-dot" id="ws-dot"></div><span id="ws-label">offline</span></div>
-    <div class="tb-divider"></div>
-    <div class="tb-clock" id="tb-clock">--:--</div>
-  </div>
-</div>
-
-<!-- Dock -->
-<div id="dock">
-  <div class="dock-icon terminal-icon" onclick="openApp('terminal')" title="Terminal">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-    <span class="icon-label">TERM</span>
-  </div>
-  <div class="dock-icon editor-icon" onclick="openApp('editor')" title="Text Editor">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-    <span class="icon-label">EDIT</span>
-  </div>
-  <div class="dock-icon files-icon" onclick="openApp('files')" title="File Manager">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-    <span class="icon-label">FILES</span>
-  </div>
-  <div class="dock-icon sys-icon" onclick="openApp('sysmon')" title="System Monitor">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-    <span class="icon-label">SYS</span>
-  </div>
-  <div class="dock-icon store-icon" onclick="openApp('store')" title="App Store">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-    <span class="icon-label">STORE</span>
-  </div>
-</div>
-
-<!-- Window Templates (hidden, cloned on open) -->
-<template id="tpl-terminal">
-  <div class="window" id="win-terminal" data-app="terminal" style="width:680px;height:440px;top:60px;left:80px;">
-    <div class="win-header">
-      <div class="win-controls">
-        <div class="wc close" data-action="close"></div>
-        <div class="wc minimize" data-action="minimize"></div>
-        <div class="wc maximize" data-action="maximize"></div>
-      </div>
-      <div class="win-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        <span>Terminal</span>
-      </div>
-    </div>
-    <div class="win-body">
-      <div id="terminal-output"></div>
-      <div class="term-input-row">
-        <div class="term-prompt" id="term-prompt">optimistic@optimistic:~$</div>
-        <input type="text" class="term-input" id="command-input" autocomplete="off" spellcheck="false" placeholder="enter command…" />
-      </div>
-    </div>
-    <div class="win-resize" data-action="resize"></div>
-  </div>
-</template>
-
-<template id="tpl-editor">
-  <div class="window" id="win-editor" data-app="editor" style="width:600px;height:460px;top:80px;left:200px;">
-    <div class="win-header">
-      <div class="win-controls">
-        <div class="wc close" data-action="close"></div>
-        <div class="wc minimize" data-action="minimize"></div>
-        <div class="wc maximize" data-action="maximize"></div>
-      </div>
-      <div class="win-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#5b9cf6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        <span id="editor-title-span">untitled.txt — Text Editor</span>
-      </div>
-    </div>
-    <div class="win-body">
-      <div class="editor-toolbar">
-        <span id="editor-path-label">~/untitled.txt</span>
-        <button class="ed-btn" onclick="editorNew()">New</button>
-        <button class="ed-btn" onclick="editorOpen()">Open…</button>
-        <button class="ed-btn primary" onclick="editorSave()">Save</button>
-        <button class="ed-btn primary" onclick="editorRun()">Run ▶</button>
-      </div>
-      <textarea id="editor-area" placeholder="# start typing…&#10;# use Run ▶ to execute in the terminal"></textarea>
-    </div>
-    <div class="win-resize" data-action="resize"></div>
-  </div>
-</template>
-
-<template id="tpl-files">
-  <div class="window" id="win-files" data-app="files" style="width:520px;height:420px;top:100px;left:300px;">
-    <div class="win-header">
-      <div class="win-controls">
-        <div class="wc close" data-action="close"></div>
-        <div class="wc minimize" data-action="minimize"></div>
-        <div class="wc maximize" data-action="maximize"></div>
-      </div>
-      <div class="win-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#f5a623" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <span>File Manager</span>
-      </div>
-    </div>
-    <div class="win-body">
-      <div class="fm-toolbar">
-        <button class="fm-btn" id="fm-up-btn" onclick="fmUp()">↑ Up</button>
-        <div class="fm-path" id="fm-path-label">/home/optimistic</div>
-        <button class="fm-btn" onclick="fmRefresh()">↻</button>
-      </div>
-      <div id="fm-list"></div>
-    </div>
-    <div class="win-resize" data-action="resize"></div>
-  </div>
-</template>
-
-<template id="tpl-sysmon">
-  <div class="window" id="win-sysmon" data-app="sysmon" style="width:500px;height:500px;top:70px;left:380px;">
-    <div class="win-header">
-      <div class="win-controls">
-        <div class="wc close" data-action="close"></div>
-        <div class="wc minimize" data-action="minimize"></div>
-        <div class="wc maximize" data-action="maximize"></div>
-      </div>
-      <div class="win-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        <span>System Monitor</span>
-      </div>
-    </div>
-    <div class="win-body">
-      <div class="sysmon-body" id="sysmon-body"></div>
-    </div>
-    <div class="win-resize" data-action="resize"></div>
-  </div>
-</template>
-
-<template id="tpl-store">
-  <div class="window" id="win-store" data-app="store" style="width:720px;height:540px;top:55px;left:120px;">
-    <div class="win-header">
-      <div class="win-controls">
-        <div class="wc close" data-action="close"></div>
-        <div class="wc minimize" data-action="minimize"></div>
-        <div class="wc maximize" data-action="maximize"></div>
-      </div>
-      <div class="win-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-        <span>App Store</span>
-        <span class="store-beta-badge">BETA</span>
-      </div>
-    </div>
-    <div class="win-body" style="position:relative;">
-      <div class="store-body">
-        <div class="store-search-bar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" class="store-search-input" id="store-search" placeholder="search packages…" autocomplete="off" spellcheck="false" oninput="storeFilter()" />
+    <div class="terminal-container">
+        <div class="terminal-header">
+            <div class="terminal-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="4 17 10 11 4 5"></polyline>
+                    <line x1="12" y1="19" x2="20" y2="19"></line>
+                </svg>
+                <span>OPTIMISTIC TERMINAL</span>
+            </div>
+            <div class="connection-status status-connecting" id="connection-status">connecting</div>
         </div>
-        <div class="store-cats" id="store-cats"></div>
-        <div class="store-grid" id="store-grid"></div>
-      </div>
-      <!-- Install log overlay -->
-      <div class="store-log-overlay hidden" id="store-log-overlay">
-        <div class="store-log-header">
-          <div class="store-log-title" id="store-log-title">Installing…</div>
-          <div class="store-log-close" id="store-log-close-btn" onclick="storeLogClose()">✕ Close</div>
+        <div class="terminal-output" id="terminal-output"></div>
+        <div class="terminal-input-area">
+            <div class="terminal-prompt" id="prompt">optimistic@optimistic:~$</div>
+            <input type="text" class="terminal-input" id="command-input" autofocus autocomplete="off" spellcheck="false">
         </div>
-        <div class="store-log-output" id="store-log-output"></div>
-        <div class="store-log-status">
-          <div class="log-spinner" id="store-log-spinner"></div>
-          <span id="store-log-status-text">Running apt-get…</span>
-        </div>
-      </div>
     </div>
-    <div class="win-resize" data-action="resize"></div>
-  </div>
-</template>
-// ═══════════════════════════════════════════════════════
-// BACKGROUND GRID ANIMATION
-// ═══════════════════════════════════════════════════════
-(function() {
-  const canvas = document.getElementById('bg-canvas');
-  const ctx = canvas.getContext('2d');
-  let W, H, dots = [];
-  function resize() {
-    W = canvas.width = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-    dots = [];
-    const cols = Math.ceil(W / 48) + 1, rows = Math.ceil(H / 48) + 1;
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      dots.push({ x: c*48, y: r*48, a: Math.random()*Math.PI*2, s: 0.3+Math.random()*0.7 });
-    }
-  }
-  let t = 0;
-  function draw() {
-    ctx.clearRect(0,0,W,H);
-    t += 0.008;
-    dots.forEach(d => {
-      const pulse = 0.2 + 0.15*Math.sin(t + d.a);
-      ctx.beginPath(); ctx.arc(d.x, d.y, 1, 0, Math.PI*2);
-      ctx.fillStyle = `rgba(255,255,255,${pulse * d.s})`;
-      ctx.fill();
-    });
-    requestAnimationFrame(draw);
-  }
-  window.addEventListener('resize', resize);
-  resize(); draw();
-})();
 
-// ═══════════════════════════════════════════════════════
-// CLOCK
-// ═══════════════════════════════════════════════════════
-function updateClock() {
-  const now = new Date();
-  document.getElementById('tb-clock').textContent =
-    now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false});
-}
-setInterval(updateClock, 1000); updateClock();
+    <script>
+        let ws = null;
+        let isConnected = false;
+        let commandHistory = [];
+        let historyIndex = -1;
 
-// ═══════════════════════════════════════════════════════
-// WEBSOCKET
-// ═══════════════════════════════════════════════════════
-let ws = null, wsReady = false;
-let cmdHistory = [], histIdx = -1;
-let pendingOutput = '';
+        const container = document.getElementById('terminal-output');
+        const inputField = document.getElementById('command-input');
+        const promptSpan = document.getElementById('prompt');
+        const statusSpan = document.getElementById('connection-status');
 
-function wsConnect() {
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${proto}//${location.host}`);
-  ws.onopen = () => {
-    wsReady = true;
-    document.getElementById('ws-dot').className = 'ws-dot connected';
-    document.getElementById('ws-label').textContent = 'online';
-    enableTermInput(true);
-  };
-  ws.onmessage = e => {
-    try { const d = JSON.parse(e.data); if (d.type === 'output') handleOutput(d.data); }
-    catch { handleOutput(e.data); }
-  };
-  ws.onclose = () => {
-    wsReady = false;
-    document.getElementById('ws-dot').className = 'ws-dot';
-    document.getElementById('ws-label').textContent = 'offline';
-    enableTermInput(false);
-    setTimeout(wsConnect, 3000);
-  };
-  ws.onerror = () => { ws.close(); };
-}
+        function cleanAnsi(text) {
+            return text
+                // Bracketed paste mode
+                .replace(/\x1b\[\?2004[hl]/g, '')
+                // Line wrapping mode (neofetch)
+                .replace(/\x1b\[\?7[hl]/g, '')
+                // OSC sequences (window titles, etc.)
+                .replace(/\x1b\][^\x07]*\x07/g, '')
+                .replace(/\x1b\][^\x1b]*\x1b\\/g, '')
+                // Cursor movement
+                .replace(/\x1b\[[\d;]*[ABCDEFGHJKSTfmn]/g, '')
+                // Clear screen / line
+                .replace(/\x1b\[[\d;]*[JK]/g, '')
+                // Scroll region
+                .replace(/\x1b\[[\d;]*[rs]/g, '')
+                // Hide/show cursor
+                .replace(/\x1b\[\?25[hl]/g, '')
+                // Alternate screen buffer
+                .replace(/\x1b\[\??1049[hl]/g, '')
+                // Set/reset mode
+                .replace(/\x1b\[[\d;]*[hl]/g, '')
+                // Bell
+                .replace(/\x07/g, '');
+        }
 
-function sendCmd(cmd) {
-  if (!cmd.trim()) return;
-  cmdHistory.unshift(cmd); histIdx = -1;
-  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'command', command: cmd}));
-}
+        function parseANSICodes(text) {
+            let html = cleanAnsi(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\x1b\[32m/g, '<span class="ansi-green">')
+                .replace(/\x1b\[31m/g, '<span class="ansi-red">')
+                .replace(/\x1b\[33m/g, '<span class="ansi-yellow">')
+                .replace(/\x1b\[34m/g, '<span class="ansi-blue">')
+                .replace(/\x1b\[36m/g, '<span class="ansi-cyan">')
+                .replace(/\x1b\[1m/g, '<span class="ansi-bold">')
+                .replace(/\x1b\[0m/g, '</span>');
+            return html;
+        }
 
-function enableTermInput(on) {
-  const inp = document.getElementById('command-input');
-  if (inp) { inp.disabled = !on; if (on) inp.focus(); }
-}
+        function updateStatus(status, message) {
+            statusSpan.textContent = message;
+            statusSpan.className = `connection-status status-${status}`;
+            isConnected = status === 'connected';
+            inputField.disabled = !isConnected;
+            if (isConnected) inputField.focus();
+        }
 
-// ═══════════════════════════════════════════════════════
-// ANSI PARSING
-// ═══════════════════════════════════════════════════════
-function cleanAnsi(t) {
-  return t
-    .replace(/\x1b\[\?2004[hl]/g,'').replace(/\x1b\[\?7[hl]/g,'')
-    .replace(/\x1b\][^\x07]*\x07/g,'').replace(/\x1b\][^\x1b]*\x1b\\/g,'')
-    .replace(/\x1b\[[\d;]*[ABCDEFGHJKSTfmn]/g,'').replace(/\x1b\[[\d;]*[JK]/g,'')
-    .replace(/\x1b\[[\d;]*[rs]/g,'').replace(/\x1b\[\?25[hl]/g,'')
-    .replace(/\x1b\[\??1049[hl]/g,'').replace(/\x1b\[[\d;]*[hl]/g,'')
-    .replace(/\x07/g,'');
-}
-function parseAnsi(t) {
-  return cleanAnsi(t)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/\x1b\[32m/g,'<span class="a-green">').replace(/\x1b\[31m/g,'<span class="a-red">')
-    .replace(/\x1b\[33m/g,'<span class="a-yellow">').replace(/\x1b\[34m/g,'<span class="a-blue">')
-    .replace(/\x1b\[36m/g,'<span class="a-cyan">').replace(/\x1b\[1m/g,'<span class="a-bold">')
-    .replace(/\x1b\[2m/g,'<span class="a-dim">').replace(/\x1b\[0m/g,'</span>');
-}
+        function appendOutput(text) {
+            if (!text) return;
+            // Collapse multiple consecutive blank lines to max 1
+            const lines = text.split('\n');
+            let lastWasEmpty = false;
+            for (const line of lines) {
+                const isEmpty = !line.trim();
+                if (isEmpty && lastWasEmpty) continue;
+                lastWasEmpty = isEmpty;
+                
+                const div = document.createElement('div');
+                div.className = 'terminal-line';
+                div.innerHTML = parseANSICodes(line) || '&nbsp;';
+                container.appendChild(div);
+            }
+            container.scrollTop = container.scrollHeight;
+        }
 
-function handleOutput(text) {
-  const out = document.getElementById('terminal-output');
-  if (!out || !text) return;
-  const lines = text.split('\n');
-  let lastEmpty = false;
-  lines.forEach(line => {
-    const empty = !line.trim();
-    if (empty && lastEmpty) return;
-    lastEmpty = empty;
-    const div = document.createElement('div');
-    div.className = 'terminal-line';
-    div.innerHTML = parseAnsi(line) || '&nbsp;';
-    out.appendChild(div);
-  });
-  out.scrollTop = out.scrollHeight;
-}
+        function sendCommand(cmd) {
+            if (!cmd.trim()) return;
+            commandHistory.unshift(cmd);
+            historyIndex = -1;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'command', command: cmd }));
+            }
+        }
 
-// ═══════════════════════════════════════════════════════
-// WINDOW MANAGER
-// ═══════════════════════════════════════════════════════
-let zTop = 200;
-const openWindows = {};
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            
+            updateStatus('connecting', 'connecting');
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                updateStatus('connected', 'connected');
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'output') {
+                        appendOutput(data.data);
+                    }
+                } catch (e) {
+                    appendOutput(event.data);
+                }
+            };
+            
+            ws.onclose = () => {
+                updateStatus('disconnected', 'disconnected');
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onerror = () => {
+                updateStatus('disconnected', 'error');
+            };
+        }
 
-function focusWindow(win) {
-  document.querySelectorAll('.window').forEach(w => w.classList.remove('focused'));
-  win.classList.add('focused');
-  win.style.zIndex = ++zTop;
-  updateTaskbar();
-}
+        inputField.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const cmd = inputField.value;
+                inputField.value = '';
+                sendCommand(cmd);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    inputField.value = commandHistory[historyIndex];
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    inputField.value = commandHistory[historyIndex];
+                } else {
+                    historyIndex = -1;
+                    inputField.value = '';
+                }
+            }
+        });
 
-function openApp(appId) {
-  document.getElementById('desktop-hint').style.opacity = '0';
-  if (openWindows[appId]) {
-    const w = openWindows[appId];
-    w.classList.remove('minimized');
-    focusWindow(w);
-    return;
-  }
-  const tpl = document.getElementById(`tpl-${appId}`);
-  if (!tpl) return;
-  const clone = tpl.content.cloneNode(true);
-  const win = clone.querySelector('.window');
-  document.body.appendChild(clone);
-  const el = document.getElementById(`win-${appId}`);
-  openWindows[appId] = el;
+        document.body.addEventListener('click', () => {
+            if (!inputField.disabled) inputField.focus();
+        });
 
-  makeWindowInteractive(el);
-  focusWindow(el);
-
-  if (appId === 'terminal') {
-    const inp = el.querySelector('#command-input');
-    inp.addEventListener('keydown', termKeydown);
-    el.addEventListener('click', () => { if (!inp.disabled) inp.focus(); });
-    if (wsReady) { inp.disabled = false; inp.focus(); }
-  }
-  if (appId === 'files') { fmCurPath = '/home/optimistic'; fmRefresh(); }
-  if (appId === 'sysmon') { sysmonRefresh(); }
-  if (appId === 'store') { storeInit(); }
-
-  updateTaskbar();
-}
-
-function makeWindowInteractive(win) {
-  // focus on click
-  win.addEventListener('mousedown', (e) => {
-    if (!e.target.dataset.action) focusWindow(win);
-  });
-
-  // control buttons
-  win.querySelectorAll('.wc').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const action = btn.dataset.action;
-      const appId = win.dataset.app;
-      if (action === 'close') { win.remove(); delete openWindows[appId]; updateTaskbar(); }
-      if (action === 'minimize') { win.classList.add('minimized'); updateTaskbar(); }
-      if (action === 'maximize') { win.classList.toggle('maximized'); }
-    });
-  });
-
-  // drag
-  const header = win.querySelector('.win-header');
-  let dragging = false, ox, oy;
-  header.addEventListener('mousedown', (e) => {
-    if (e.target.classList.contains('wc')) return;
-    dragging = true; ox = e.clientX - win.offsetLeft; oy = e.clientY - win.offsetTop;
-    focusWindow(win);
-    e.preventDefault();
-  });
-  document.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    win.classList.remove('maximized');
-    const nx = Math.max(0, Math.min(e.clientX - ox, window.innerWidth - 200));
-    const ny = Math.max(0, Math.min(e.clientY - oy, window.innerHeight - 52 - 40));
-    win.style.left = nx + 'px'; win.style.top = ny + 'px';
-  });
-  document.addEventListener('mouseup', () => { dragging = false; });
-
-  // resize
-  const rh = win.querySelector('.win-resize');
-  if (rh) {
-    let resizing = false, sx, sy, sw, sh;
-    rh.addEventListener('mousedown', (e) => {
-      resizing = true; sx = e.clientX; sy = e.clientY;
-      sw = win.offsetWidth; sh = win.offsetHeight;
-      e.preventDefault(); e.stopPropagation();
-    });
-    document.addEventListener('mousemove', (e) => {
-      if (!resizing) return;
-      win.style.width = Math.max(320, sw + e.clientX - sx) + 'px';
-      win.style.height = Math.max(200, sh + e.clientY - sy) + 'px';
-    });
-    document.addEventListener('mouseup', () => { resizing = false; });
-  }
-}
-
-function updateTaskbar() {
-  const tb = document.getElementById('tb-apps');
-  tb.innerHTML = '';
-  const labels = { terminal: 'Terminal', editor: 'Text Editor', files: 'File Manager', sysmon: 'System Monitor', store: 'App Store' };
-  const icons = {
-    terminal: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>`,
-    editor: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
-    files: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`,
-    sysmon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
-    store: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`
-  };
-  Object.keys(openWindows).forEach(id => {
-    const w = openWindows[id];
-    const btn = document.createElement('div');
-    btn.className = 'tb-app-btn' + (w.classList.contains('focused') ? ' active' : '');
-    if (!w.classList.contains('minimized') && w.classList.contains('focused')) {
-      btn.innerHTML = `<span class="dot"></span>${icons[id]}<span>${labels[id]}</span>`;
-    } else {
-      btn.innerHTML = `${icons[id]}<span>${labels[id]}</span>`;
-    }
-    btn.onclick = () => {
-      if (w.classList.contains('minimized')) { w.classList.remove('minimized'); focusWindow(w); }
-      else if (w.classList.contains('focused')) { w.classList.add('minimized'); updateTaskbar(); }
-      else { focusWindow(w); }
-    };
-    tb.appendChild(btn);
-  });
-}
-
-// ═══════════════════════════════════════════════════════
-// TERMINAL
-// ═══════════════════════════════════════════════════════
-function termKeydown(e) {
-  if (e.key === 'Enter') {
-    const inp = e.target; const cmd = inp.value; inp.value = '';
-    sendCmd(cmd);
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    if (histIdx < cmdHistory.length-1) { histIdx++; e.target.value = cmdHistory[histIdx]; }
-  } else if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    if (histIdx > 0) { histIdx--; e.target.value = cmdHistory[histIdx]; }
-    else { histIdx = -1; e.target.value = ''; }
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-// TEXT EDITOR
-// ═══════════════════════════════════════════════════════
-let editorCurrentFile = null;
-function editorNew() { document.getElementById('editor-area').value = ''; editorCurrentFile = null; document.getElementById('editor-title-span').textContent = 'untitled.txt — Text Editor'; document.getElementById('editor-path-label').textContent = '~/untitled.txt'; }
-function editorOpen() {
-  const name = prompt('Enter file path to open (e.g. /home/optimistic/script.sh):');
-  if (!name) return;
-  editorCurrentFile = name;
-  sendCmd(`cat "${name}"`);
-  document.getElementById('editor-title-span').textContent = name.split('/').pop() + ' — Text Editor';
-  document.getElementById('editor-path-label').textContent = name;
-}
-function editorSave() {
-  const content = document.getElementById('editor-area').value;
-  const path = editorCurrentFile || '/home/optimistic/untitled.txt';
-  if (!editorCurrentFile) editorCurrentFile = path;
-  const escaped = content.replace(/'/g, "'\\''");
-  sendCmd(`cat > '${path}' << 'EDEOF'\n${content}\nEDEOF`);
-  openApp('terminal');
-}
-function editorRun() {
-  const content = document.getElementById('editor-area').value;
-  const path = '/tmp/oos_run_' + Date.now() + '.sh';
-  const escaped = content.replace(/'/g, "'\\''");
-  sendCmd(`echo '${escaped}' > ${path} && chmod +x ${path} && bash ${path}`);
-  openApp('terminal');
-}
-
-// ═══════════════════════════════════════════════════════
-// FILE MANAGER
-// ═══════════════════════════════════════════════════════
-let fmCurPath = '/home/optimistic';
-let fmParsing = false;
-
-function fmRefresh() {
-  const list = document.getElementById('fm-list');
-  if (!list) return;
-  list.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:11px;font-family:var(--font-mono);">loading…</div>`;
-  document.getElementById('fm-path-label').textContent = fmCurPath;
-
-  // Use ls -la to list files; we'll intercept terminal output
-  fmParsing = true;
-  fmBuffer = '';
-  sendCmd(`ls -la --color=never "${fmCurPath}" 2>&1`);
-
-  // Give it time, then parse the terminal output
-  setTimeout(() => {
-    fmParsing = false;
-    renderFmFromBuffer();
-  }, 800);
-}
-
-let fmBuffer = '';
-const origHandleOutput = window.handleOutput;
-function handleOutput(text) {
-  // delegate to terminal
-  const out = document.getElementById('terminal-output');
-  if (out && text) {
-    const lines = text.split('\n');
-    let lastEmpty = false;
-    lines.forEach(line => {
-      const empty = !line.trim();
-      if (empty && lastEmpty) return;
-      lastEmpty = empty;
-      const div = document.createElement('div');
-      div.className = 'terminal-line';
-      div.innerHTML = parseAnsi(line) || '&nbsp;';
-      out.appendChild(div);
-    });
-    out.scrollTop = out.scrollHeight;
-  }
-  if (fmParsing) fmBuffer += text;
-  // Feed store log
-  if (storeLogCapturing) {
-    storeLogBuffer += text;
-    const out = document.getElementById('store-log-output');
-    if (out) {
-      const clean = text.replace(/\x1b\[[^m]*m/g, '').replace(/\x1b\[[^a-zA-Z]*[a-zA-Z]/g, '').replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '');
-      const lines = clean.split('\n');
-      lines.forEach(line => {
-        if (!line.trim()) return;
-        const div = document.createElement('div');
-        div.textContent = line;
-        // colorize key lines
-        if (/^(get|hit|ign|reading|building|setting up|unpacking)/i.test(line.trim())) div.style.color = '#5af0b0';
-        else if (/^(err|e:|unable|failed|error)/i.test(line.trim())) div.style.color = '#f87171';
-        else if (/^(w:|warning)/i.test(line.trim())) div.style.color = '#fbbf24';
-        out.appendChild(div);
-        out.scrollTop = out.scrollHeight;
-      });
-      document.getElementById('store-log-status-text').textContent = 'Running apt-get… ' + (clean.trim().split('\n').pop().substring(0,60) || '');
-    }
-  }
-}
-
-function renderFmFromBuffer() {
-  const list = document.getElementById('fm-list');
-  if (!list) return;
-  list.innerHTML = '';
-  const lines = fmBuffer.split('\n').filter(l => l.trim() && !l.startsWith('total'));
-  fmBuffer = '';
-
-  lines.forEach(line => {
-    const parts = line.trim().split(/\s+/);
-    if (parts.length < 9) return;
-    const perms = parts[0], size = parts[4], name = parts.slice(8).join(' ');
-    if (!name || name === '.' || name === '..') return;
-    const isDir = perms.startsWith('d');
-    const item = document.createElement('div');
-    item.className = 'fm-item ' + (isDir ? 'dir' : 'file');
-    item.innerHTML = isDir
-      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span class="fm-name">${name}</span>`
-      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="fm-name">${name}</span><span class="fm-size">${formatSize(size)}</span>`;
-    item.onclick = () => {
-      if (isDir) { fmCurPath = (fmCurPath.endsWith('/') ? fmCurPath : fmCurPath + '/') + name; fmRefresh(); }
-      else { openApp('editor'); document.getElementById('editor-area').value = ''; editorCurrentFile = fmCurPath + '/' + name; sendCmd(`cat "${fmCurPath}/${name}"`); }
-    };
-    list.appendChild(item);
-  });
-  if (!list.children.length) list.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:11px;font-family:var(--font-mono);">empty directory</div>`;
-}
-
-function fmUp() {
-  const parts = fmCurPath.split('/').filter(Boolean);
-  if (parts.length <= 1) { fmCurPath = '/'; } else { parts.pop(); fmCurPath = '/' + parts.join('/'); }
-  fmRefresh();
-}
-function formatSize(s) {
-  const n = parseInt(s);
-  if (isNaN(n)) return s;
-  if (n < 1024) return n + 'B';
-  if (n < 1048576) return (n/1024).toFixed(1) + 'K';
-  return (n/1048576).toFixed(1) + 'M';
-}
-
-// ═══════════════════════════════════════════════════════
-// SYSTEM MONITOR
-// ═══════════════════════════════════════════════════════
-function sysmonRefresh() {
-  const body = document.getElementById('sysmon-body');
-  if (!body) return;
-
-  // Animate fake-realistic metrics (real values come from `uptime`/`free` via terminal)
-  let cpuVals = [0,0,0,0].map(() => 10 + Math.random()*60);
-  let memPct = 25 + Math.random()*40;
-  let diskPct = 30 + Math.random()*20;
-
-  body.innerHTML = `
-    <div>
-      <div class="sys-section-title">CPU Cores</div>
-      ${cpuVals.map((v,i) => `
-        <div class="sys-meter-row">
-          <div class="sys-meter-label">CPU${i}</div>
-          <div class="sys-meter-bar"><div class="sys-meter-fill cpu" style="width:${v}%"></div></div>
-          <div class="sys-meter-val">${v.toFixed(0)}%</div>
-        </div>`).join('')}
-    </div>
-    <div>
-      <div class="sys-section-title">Memory</div>
-      <div class="sys-meter-row">
-        <div class="sys-meter-label">RAM</div>
-        <div class="sys-meter-bar"><div class="sys-meter-fill mem" style="width:${memPct}%"></div></div>
-        <div class="sys-meter-val">${memPct.toFixed(0)}%</div>
-      </div>
-      <div class="sys-meter-row">
-        <div class="sys-meter-label">Disk</div>
-        <div class="sys-meter-bar"><div class="sys-meter-fill disk" style="width:${diskPct}%"></div></div>
-        <div class="sys-meter-val">${diskPct.toFixed(0)}%</div>
-      </div>
-    </div>
-    <div>
-      <div class="sys-section-title">System Info</div>
-      <div class="sys-info-grid">
-        <div class="sys-info-card"><div class="label">HOSTNAME</div><div class="value">optimistic</div></div>
-        <div class="sys-info-card"><div class="label">KERNEL</div><div class="value">Linux</div></div>
-        <div class="sys-info-card"><div class="label">UPTIME</div><div class="value" id="sys-uptime">—</div></div>
-        <div class="sys-info-card"><div class="label">SHELL</div><div class="value">bash</div></div>
-        <div class="sys-info-card"><div class="label">WS</div><div class="value" id="sys-ws">${wsReady ? 'online' : 'offline'}</div></div>
-        <div class="sys-info-card"><div class="label">WINDOWS</div><div class="value" id="sys-wins">${Object.keys(openWindows).length}</div></div>
-      </div>
-    </div>
-    <div>
-      <div class="sys-section-title">Quick Actions</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        ${['uptime','free -h','df -h','uname -a','ps aux --sort=-%cpu | head -8'].map(cmd =>
-          `<button class="fm-btn" onclick="sendCmd('${cmd}');openApp('terminal')" style="font-size:10px;font-family:var(--font-mono)">${cmd}</button>`
-        ).join('')}
-      </div>
-    </div>`;
-
-  // Poll uptime via terminal every 5s
-  if (wsReady) sendCmd('uptime -p 2>/dev/null || uptime');
-}
-setInterval(() => {
-  if (openWindows['sysmon'] && !openWindows['sysmon'].classList.contains('minimized')) sysmonRefresh();
-}, 10000);
-
-// ═══════════════════════════════════════════════════════
-// APP STORE
-// ═══════════════════════════════════════════════════════
-const PACKAGES = [
-  // Dev Tools
-  { name:'Git',         apt:'git',            cat:'Dev Tools',  icon:'🗂', color:'rgba(251,191,36,0.15)', desc:'Distributed version control system', size:'~28 MB' },
-  { name:'Node.js',     apt:'nodejs',         cat:'Dev Tools',  icon:'⬡', color:'rgba(74,222,128,0.12)', desc:'JavaScript runtime built on Chrome V8', size:'~60 MB' },
-  { name:'Python 3',    apt:'python3',        cat:'Dev Tools',  icon:'🐍', color:'rgba(91,156,246,0.12)', desc:'High-level programming language', size:'~30 MB' },
-  { name:'npm',         apt:'npm',            cat:'Dev Tools',  icon:'📦', color:'rgba(248,113,113,0.12)', desc:'Node package manager', size:'~15 MB' },
-  { name:'Make',        apt:'make',           cat:'Dev Tools',  icon:'⚙', color:'rgba(192,132,252,0.12)', desc:'GNU make build automation tool', size:'~2 MB' },
-  { name:'GCC',         apt:'gcc',            cat:'Dev Tools',  icon:'🔨', color:'rgba(251,191,36,0.12)', desc:'GNU C/C++ compiler collection', size:'~50 MB' },
-  { name:'Vim',         apt:'vim',            cat:'Dev Tools',  icon:'✏', color:'rgba(74,222,128,0.12)', desc:'Highly configurable text editor', size:'~4 MB' },
-  { name:'tmux',        apt:'tmux',           cat:'Dev Tools',  icon:'🪟', color:'rgba(91,156,246,0.12)', desc:'Terminal multiplexer', size:'~1 MB' },
-  // Network
-  { name:'curl',        apt:'curl',           cat:'Network',    icon:'🌐', color:'rgba(91,156,246,0.15)', desc:'Transfer data with URLs', size:'~1 MB' },
-  { name:'wget',        apt:'wget',           cat:'Network',    icon:'⬇', color:'rgba(74,222,128,0.12)', desc:'Non-interactive network downloader', size:'~1 MB' },
-  { name:'nmap',        apt:'nmap',           cat:'Network',    icon:'🔭', color:'rgba(248,113,113,0.12)', desc:'Network exploration and security scanner', size:'~5 MB' },
-  { name:'netcat',      apt:'netcat-openbsd', cat:'Network',    icon:'📡', color:'rgba(192,132,252,0.12)', desc:'TCP/IP Swiss Army knife', size:'<1 MB' },
-  { name:'net-tools',   apt:'net-tools',      cat:'Network',    icon:'🔗', color:'rgba(245,166,35,0.12)', desc:'ifconfig, netstat, route and more', size:'<1 MB' },
-  { name:'OpenSSH',     apt:'openssh-client', cat:'Network',    icon:'🔐', color:'rgba(74,222,128,0.12)', desc:'SSH client for secure remote access', size:'~5 MB' },
-  // System
-  { name:'htop',        apt:'htop',           cat:'System',     icon:'📊', color:'rgba(74,222,128,0.15)', desc:'Interactive process viewer', size:'<1 MB' },
-  { name:'tree',        apt:'tree',           cat:'System',     icon:'🌲', color:'rgba(74,222,128,0.12)', desc:'Directory listing in tree format', size:'<1 MB' },
-  { name:'zip / unzip', apt:'zip unzip',      cat:'System',     icon:'🗜', color:'rgba(245,166,35,0.12)', desc:'Compress and decompress ZIP archives', size:'<1 MB' },
-  { name:'jq',          apt:'jq',             cat:'System',     icon:'{}', color:'rgba(91,156,246,0.12)', desc:'Command-line JSON processor', size:'<1 MB' },
-  { name:'sudo',        apt:'sudo',           cat:'System',     icon:'🛡', color:'rgba(248,113,113,0.12)', desc:'Execute commands as superuser', size:'<1 MB' },
-  { name:'cron',        apt:'cron',           cat:'System',     icon:'⏰', color:'rgba(192,132,252,0.12)', desc:'Daemon for scheduled task execution', size:'<1 MB' },
-  // Media
-  { name:'ffmpeg',      apt:'ffmpeg',         cat:'Media',      icon:'🎞', color:'rgba(248,113,113,0.15)', desc:'Complete, cross-platform media solution', size:'~30 MB' },
-  { name:'ImageMagick', apt:'imagemagick',    cat:'Media',      icon:'🖼', color:'rgba(192,132,252,0.12)', desc:'Create, edit, convert images', size:'~20 MB' },
-  // Databases
-  { name:'SQLite3',     apt:'sqlite3',        cat:'Databases',  icon:'🗄', color:'rgba(245,166,35,0.15)', desc:'Self-contained SQL database engine', size:'<1 MB' },
-  { name:'Redis CLI',   apt:'redis-tools',    cat:'Databases',  icon:'🔴', color:'rgba(248,113,113,0.12)', desc:'Redis command-line interface tools', size:'<1 MB' },
-  // Fun
-  { name:'cowsay',      apt:'cowsay',         cat:'Fun',        icon:'🐮', color:'rgba(74,222,128,0.12)', desc:'Configurable talking cow ASCII art', size:'<1 MB' },
-  { name:'fortune',     apt:'fortune',        cat:'Fun',        icon:'🔮', color:'rgba(192,132,252,0.12)', desc:'Print random, hopefully interesting adage', size:'<1 MB' },
-  { name:'neofetch',    apt:'neofetch',       cat:'Fun',        icon:'💻', color:'rgba(91,156,246,0.12)', desc:'Fast, highly customizable system info script', size:'<1 MB' },
-  { name:'lolcat',      apt:'lolcat',         cat:'Fun',        icon:'🌈', color:'rgba(248,113,113,0.12)', desc:'Rainbow coloring for terminal output', size:'<1 MB' },
-  { name:'sl',          apt:'sl',             cat:'Fun',        icon:'🚂', color:'rgba(245,166,35,0.12)', desc:'Steam locomotive animation for typos', size:'<1 MB' },
-];
-
-const CATS = ['All', ...new Set(PACKAGES.map(p => p.cat))];
-let storeCurCat = 'All';
-let storeInstalled = new Set(JSON.parse(localStorage.getItem('oos_installed') || '[]'));
-let storeInstalling = null; // apt package string currently being installed
-let storeLogActive = false;
-let storeLogCapturing = false;
-let storeLogBuffer = '';
-
-function storeSaveInstalled() {
-  localStorage.setItem('oos_installed', JSON.stringify([...storeInstalled]));
-}
-
-function storeInit() {
-  // Build category tabs
-  const cats = document.getElementById('store-cats');
-  if (!cats) return;
-  CATS.forEach(c => {
-    const btn = document.createElement('div');
-    btn.className = 'store-cat-btn' + (c === storeCurCat ? ' active' : '');
-    btn.textContent = c;
-    btn.onclick = () => { storeCurCat = c; storeRender(); };
-    cats.appendChild(btn);
-  });
-  storeRender();
-}
-
-function storeFilter() {
-  storeRender();
-}
-
-function storeRender() {
-  const grid = document.getElementById('store-grid');
-  const cats = document.getElementById('store-cats');
-  if (!grid) return;
-
-  // Update cat tab highlights
-  if (cats) cats.querySelectorAll('.store-cat-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent === storeCurCat);
-  });
-
-  const q = (document.getElementById('store-search')?.value || '').toLowerCase();
-  let pkgs = PACKAGES;
-  if (storeCurCat !== 'All') pkgs = pkgs.filter(p => p.cat === storeCurCat);
-  if (q) pkgs = pkgs.filter(p => p.name.toLowerCase().includes(q) || p.apt.includes(q) || p.desc.toLowerCase().includes(q));
-
-  grid.innerHTML = '';
-  pkgs.forEach(pkg => {
-    const isInstalled = storeInstalled.has(pkg.apt);
-    const isInstalling = storeInstalling === pkg.apt;
-
-    let btnClass, btnLabel;
-    if (isInstalling) { btnClass = 'installing'; btnLabel = 'Installing…'; }
-    else if (isInstalled) { btnClass = 'installed'; btnLabel = '✓ Installed'; }
-    else { btnClass = 'install'; btnLabel = 'Install'; }
-
-    const card = document.createElement('div');
-    card.className = 'pkg-card';
-    card.innerHTML = `
-      <div class="pkg-card-top">
-        <div class="pkg-icon" style="background:${pkg.color}">${pkg.icon}</div>
-        <div class="pkg-info">
-          <div class="pkg-name">${pkg.name}</div>
-          <div class="pkg-apt">${pkg.apt}</div>
-        </div>
-      </div>
-      <div class="pkg-desc">${pkg.desc}</div>
-      <div class="pkg-footer">
-        <span class="pkg-size">${pkg.size}</span>
-        <button class="pkg-install-btn ${btnClass}" data-apt="${pkg.apt}" data-name="${pkg.name}"
-          onclick="storeInstallClick(this, '${pkg.apt}', '${pkg.name}')"
-          ${isInstalling ? 'disabled' : ''}>${btnLabel}</button>
-      </div>`;
-    if (isInstalled) {
-      const btn = card.querySelector('.pkg-install-btn');
-      btn.className = 'pkg-install-btn remove';
-      btn.textContent = '✕ Remove';
-      btn.onclick = null;
-      btn.addEventListener('click', () => storeRemoveClick(btn, pkg.apt, pkg.name));
-    }
-    grid.appendChild(card);
-  });
-
-  if (!pkgs.length) {
-    grid.innerHTML = `<div style="grid-column:1/-1;padding:32px;text-align:center;color:var(--text-dim);font-family:var(--font-mono);font-size:12px;">no packages found</div>`;
-  }
-}
-
-function storeInstallClick(btn, apt, name) {
-  if (storeInstalling) return;
-  storeInstalling = apt;
-  storeRender();
-  storeShowLog(`Installing ${name}…`);
-
-  // Fire the real apt-get install through the terminal WebSocket
-  storeLogCapturing = true;
-  storeLogBuffer = '';
-  // Use sudo with auto-password (server handles sudo prompts), noninteractive to avoid prompts
-  sendCmd(`DEBIAN_FRONTEND=noninteractive sudo apt-get install -y ${apt} 2>&1`);
-
-  // Poll until we see a known completion pattern in the buffer
-  storeWaitForCompletion(apt, name, 'install');
-}
-
-function storeRemoveClick(btn, apt, name) {
-  if (storeInstalling) return;
-  storeInstalling = apt;
-  storeRender();
-  storeShowLog(`Removing ${name}…`);
-  storeLogCapturing = true;
-  storeLogBuffer = '';
-  sendCmd(`DEBIAN_FRONTEND=noninteractive sudo apt-get remove -y ${apt} 2>&1`);
-  storeWaitForCompletion(apt, name, 'remove');
-}
-
-function storeWaitForCompletion(apt, name, action) {
-  const maxWait = 120000; // 2 min timeout
-  const started = Date.now();
-  const interval = setInterval(() => {
-    const elapsed = Date.now() - started;
-    const buf = storeLogBuffer.toLowerCase();
-
-    const success = buf.includes('processing triggers') || buf.includes('setting up') ||
-                    buf.includes('newly installed') || buf.includes('removed,') ||
-                    buf.includes('0 upgraded') || buf.includes('is already') ||
-                    (action === 'remove' && buf.includes('purging')) ||
-                    buf.includes('done.') || buf.includes('packages were automatically installed');
-
-    const failed = buf.includes('unable to locate') || buf.includes('e: ') ||
-                   buf.includes('error:') || buf.includes('dpkg: error') ||
-                   buf.includes('permission denied') || buf.includes('no packages found');
-
-    if (success || elapsed > maxWait) {
-      clearInterval(interval);
-      storeLogCapturing = false;
-      storeInstalling = null;
-      if (success) {
-        if (action === 'install') storeInstalled.add(apt);
-        else storeInstalled.delete(apt);
-        storeSaveInstalled();
-        storeLogFinish(true, action === 'install' ? `${name} installed successfully!` : `${name} removed.`);
-      } else {
-        storeLogFinish(false, 'Timed out. Check the terminal for details.');
-      }
-      storeRender();
-    } else if (failed) {
-      clearInterval(interval);
-      storeLogCapturing = false;
-      storeInstalling = null;
-      storeLogFinish(false, `Failed to ${action} ${name}.`);
-      storeRender();
-    }
-  }, 500);
-}
-
-function storeShowLog(title) {
-  storeLogActive = true;
-  const overlay = document.getElementById('store-log-overlay');
-  const output = document.getElementById('store-log-output');
-  const spinner = document.getElementById('store-log-spinner');
-  const status = document.getElementById('store-log-status-text');
-  if (!overlay) return;
-  overlay.classList.remove('hidden');
-  document.getElementById('store-log-title').textContent = title;
-  output.innerHTML = '';
-  spinner.className = 'log-spinner';
-  status.textContent = 'Sending command…';
-  document.getElementById('store-log-close-btn').style.display = 'none';
-}
-
-function storeLogFinish(ok, msg) {
-  const spinner = document.getElementById('store-log-spinner');
-  const status = document.getElementById('store-log-status-text');
-  const closeBtn = document.getElementById('store-log-close-btn');
-  if (!spinner) return;
-  spinner.className = 'log-spinner ' + (ok ? 'done' : 'error');
-  status.textContent = msg;
-  if (closeBtn) closeBtn.style.display = '';
-}
-
-function storeLogClose() {
-  storeLogActive = false;
-  const overlay = document.getElementById('store-log-overlay');
-  if (overlay) overlay.classList.add('hidden');
-}
-
-// Hook into handleOutput to capture store log lines
-const _origHandleOutput2 = window.handleOutput;
-
-// ═══════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════
-wsConnect();
-// Auto-open terminal on load
-window.addEventListener('load', () => setTimeout(() => openApp('terminal'), 300));
-</script>
+        connectWebSocket();
+    </script>
 </body>
 </html>
